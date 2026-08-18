@@ -44,7 +44,7 @@ in this app exists to support one of them:
 
 | Page | Purpose |
 |---|---|
-| **Dashboard** | Equity curve, win rate, expectancy, profit factor, R-multiple distribution, discipline check, performance by setup, costliest mistakes |
+| **Dashboard** | Equity curve, win rate, expectancy, profit factor, R-multiple distribution, weekly/monthly P&L (with this-week and this-month totals), discipline check, performance by setup, costliest mistakes |
 | **Trades** | Log/search/filter every trade — entry/exit, size, stop/target, fees, strategy, psychology, mistakes, rule checklist, notes, chart screenshots |
 | **Journal** | Daily pre-market mindset and post-market review, separate from individual trades |
 | **Playbook** | Your own trading rules, organized by category (entry, exit, risk, mindset, process) — used as a per-trade checklist |

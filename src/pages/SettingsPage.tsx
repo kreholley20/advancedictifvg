@@ -80,23 +80,23 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-4 pb-16">
-      <h1 className="text-lg font-semibold text-slate-100">Settings</h1>
+      <h1 className="text-lg font-semibold text-stone-100">Settings</h1>
 
       <Card>
-        <h2 className="mb-1 text-sm font-semibold text-slate-200">Your Data</h2>
-        <p className="mb-3 text-sm text-slate-500">
+        <h2 className="mb-1 text-sm font-semibold text-stone-200">Your Data</h2>
+        <p className="mb-3 text-sm text-stone-500">
           Everything is stored locally in your browser (IndexedDB) — nothing is sent to a server. That means it's
           private, but it also means it can be lost if you clear browser data. Export a backup regularly.
         </p>
-        <div className="mb-4 flex gap-4 text-sm text-slate-400">
+        <div className="mb-4 flex gap-4 text-sm text-stone-400">
           <span>
-            <span className="font-medium text-slate-200">{tradeCount ?? "…"}</span> trades
+            <span className="font-medium text-stone-200">{tradeCount ?? "…"}</span> trades
           </span>
           <span>
-            <span className="font-medium text-slate-200">{journalCount ?? "…"}</span> journal entries
+            <span className="font-medium text-stone-200">{journalCount ?? "…"}</span> journal entries
           </span>
           <span>
-            <span className="font-medium text-slate-200">{ruleCount ?? "…"}</span> playbook rules
+            <span className="font-medium text-stone-200">{ruleCount ?? "…"}</span> playbook rules
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -106,12 +106,12 @@ export default function SettingsPage() {
           </Button>
           <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImport} />
         </div>
-        {message && <p className="mt-3 text-sm text-sky-400">{message}</p>}
+        {message && <p className="mt-3 text-sm text-sage-400">{message}</p>}
       </Card>
 
-      <Card className="border-rose-900">
-        <h2 className="mb-1 text-sm font-semibold text-rose-400">Danger Zone</h2>
-        <p className="mb-3 text-sm text-slate-500">Permanently delete all trades, journal entries, and playbook rules from this browser.</p>
+      <Card className="border-clay-900">
+        <h2 className="mb-1 text-sm font-semibold text-clay-400">Danger Zone</h2>
+        <p className="mb-3 text-sm text-stone-500">Permanently delete all trades, journal entries, and playbook rules from this browser.</p>
         {confirmClear ? (
           <div className="flex gap-2">
             <Button variant="danger" onClick={handleClearAll}>

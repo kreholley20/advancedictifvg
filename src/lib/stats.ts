@@ -162,6 +162,84 @@ export function computeEquityCurve(trades: Trade[]): EquityPoint[] {
   });
 }
 
+export type Period = "week" | "month";
+
+function startOfWeek(d: Date): Date {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // week starts Monday
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function periodBucketStart(d: Date, period: Period): Date {
+  return period === "week" ? startOfWeek(d) : startOfMonth(d);
+}
+
+function periodKey(d: Date): string {
+  // Local-date key (not UTC) so bucketing matches the trader's own calendar.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export interface PeriodPnl {
+  key: string; // sortable bucket-start date, yyyy-mm-dd
+  label: string; // human-readable range/month
+  pnl: number;
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number | null;
+}
+
+/** Groups closed trades into weekly (Mon-start) or monthly P&L buckets. */
+export function periodBreakdown(trades: Trade[], period: Period): PeriodPnl[] {
+  const closed = trades.filter((t) => t.status === "closed" && tradePnl(t) != null);
+  const buckets = new Map<string, Trade[]>();
+  for (const t of closed) {
+    const d = new Date(t.exitDate ?? t.entryDate);
+    const key = periodKey(periodBucketStart(d, period));
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(t);
+  }
+
+  return Array.from(buckets.entries())
+    .map(([key, group]) => {
+      const pnls = group.map((t) => tradePnl(t)!);
+      const wins = pnls.filter((p) => p > 0).length;
+      const losses = pnls.filter((p) => p < 0).length;
+      const start = new Date(`${key}T00:00:00`);
+      const label =
+        period === "week"
+          ? `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${new Date(
+              start.getTime() + 6 * 86400000
+            ).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+          : start.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+      return {
+        key,
+        label,
+        pnl: pnls.reduce((a, b) => a + b, 0),
+        trades: group.length,
+        wins,
+        losses,
+        winRate: group.length ? wins / group.length : null,
+      };
+    })
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+
+/** P&L for whichever bucket "now" falls into, or 0 if no closed trades yet this period. */
+export function currentPeriodPnl(rows: PeriodPnl[], period: Period): number {
+  const key = periodKey(periodBucketStart(new Date(), period));
+  return rows.find((r) => r.key === key)?.pnl ?? 0;
+}
+
 export function groupBy<T, K extends string>(items: T[], keyFn: (item: T) => K): Record<K, T[]> {
   const out = {} as Record<K, T[]>;
   for (const item of items) {

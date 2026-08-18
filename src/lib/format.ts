@@ -41,8 +41,8 @@ export function fmtDateTime(iso: string | null | undefined): string {
 }
 
 export function pnlColor(n: number | null | undefined): string {
-  if (n == null) return "text-slate-400";
-  if (n > 0) return "text-emerald-400";
-  if (n < 0) return "text-rose-400";
-  return "text-slate-400";
+  if (n == null) return "text-stone-400";
+  if (n > 0) return "text-sage-400";
+  if (n < 0) return "text-clay-400";
+  return "text-stone-400";
 }

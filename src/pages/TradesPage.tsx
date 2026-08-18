@@ -29,7 +29,7 @@ export default function TradesPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-100">Trades</h1>
+        <h1 className="text-lg font-semibold text-stone-100">Trades</h1>
         <Link to="/trades/new">
           <Button>+ Log Trade</Button>
         </Link>
@@ -48,7 +48,7 @@ export default function TradesPage() {
               key={f}
               onClick={() => setFilter(f)}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-medium capitalize transition-colors ${
-                filter === f ? "bg-slate-800 text-slate-100" : "text-slate-500 hover:bg-slate-900"
+                filter === f ? "bg-stone-800 text-stone-100" : "text-stone-500 hover:bg-stone-900"
               }`}
             >
               {f}
@@ -65,10 +65,10 @@ export default function TradesPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-stone-800">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-900/60 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-stone-800 bg-stone-900/60 text-left text-xs uppercase tracking-wide text-stone-500">
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium">Symbol</th>
                 <th className="px-3 py-2 font-medium">Dir</th>
@@ -96,17 +96,17 @@ function TradeRow({ trade: t }: { trade: Trade }) {
   const pnl = tradePnl(t);
   const r = tradeRMultiple(t);
   return (
-    <tr className="border-b border-slate-900 last:border-0 hover:bg-slate-900/40">
-      <td className="px-3 py-2 text-slate-400">{fmtDate(t.entryDate)}</td>
+    <tr className="border-b border-stone-900 last:border-0 hover:bg-stone-900/40">
+      <td className="px-3 py-2 text-stone-400">{fmtDate(t.entryDate)}</td>
       <td className="px-3 py-2">
-        <Link to={`/trades/${t.id}`} className="font-medium text-slate-100 hover:text-sky-400">
+        <Link to={`/trades/${t.id}`} className="font-medium text-stone-100 hover:text-sage-400">
           {t.symbol}
         </Link>
       </td>
       <td className="px-3 py-2">
         <Badge tone={t.direction === "long" ? "good" : "bad"}>{t.direction}</Badge>
       </td>
-      <td className="px-3 py-2 text-slate-400">{t.strategy || "—"}</td>
+      <td className="px-3 py-2 text-stone-400">{t.strategy || "—"}</td>
       <td className="px-3 py-2">
         <Badge tone={t.status === "open" ? "warn" : "neutral"}>{t.status}</Badge>
       </td>
@@ -115,9 +115,9 @@ function TradeRow({ trade: t }: { trade: Trade }) {
       <td className="px-3 py-2">
         {t.followedPlan === true && <Badge tone="good">Yes</Badge>}
         {t.followedPlan === false && <Badge tone="bad">No</Badge>}
-        {t.followedPlan == null && <span className="text-slate-600">—</span>}
+        {t.followedPlan == null && <span className="text-stone-600">—</span>}
       </td>
-      <td className="px-3 py-2 text-slate-500">{t.mistakes.length > 0 ? t.mistakes.length : "—"}</td>
+      <td className="px-3 py-2 text-stone-500">{t.mistakes.length > 0 ? t.mistakes.length : "—"}</td>
     </tr>
   );
 }

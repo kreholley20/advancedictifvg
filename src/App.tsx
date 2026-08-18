@@ -24,10 +24,10 @@ export default function App() {
 
   return (
     <div className="min-h-full">
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-stone-800 bg-stone-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-          <div className="flex items-center gap-2 font-semibold text-slate-100">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-500" />
+          <div className="flex items-center gap-2 font-semibold text-stone-100">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-sage-500" />
             Trading Journal
           </div>
           <nav className="flex gap-1">
@@ -38,7 +38,7 @@ export default function App() {
                 end={item.end}
                 className={({ isActive }) =>
                   `rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                    isActive ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                    isActive ? "bg-stone-800 text-stone-100" : "text-stone-400 hover:bg-stone-900 hover:text-stone-200"
                   }`
                 }
               >

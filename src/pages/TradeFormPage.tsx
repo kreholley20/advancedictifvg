@@ -157,12 +157,12 @@ export default function TradeFormPage() {
     navigate(`/trades/${trade.id}`);
   }
 
-  if (!loaded) return <p className="text-sm text-slate-500">Loading...</p>;
+  if (!loaded) return <p className="text-sm text-stone-500">Loading...</p>;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pb-16">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-100">{isEdit ? "Edit Trade" : "Log New Trade"}</h1>
+        <h1 className="text-lg font-semibold text-stone-100">{isEdit ? "Edit Trade" : "Log New Trade"}</h1>
         <div className="flex gap-2">
           <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
             Cancel
@@ -172,7 +172,7 @@ export default function TradeFormPage() {
       </div>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Trade Details</h2>
+        <h2 className="mb-3 text-sm font-semibold text-stone-200">Trade Details</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Field label="Symbol *">
             <input className={inputClass} value={form.symbol} onChange={(e) => set("symbol", e.target.value)} required />
@@ -213,7 +213,7 @@ export default function TradeFormPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Price &amp; Risk</h2>
+        <h2 className="mb-3 text-sm font-semibold text-stone-200">Price &amp; Risk</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Field label="Entry Price *">
             <input type="number" step="any" className={inputClass} value={form.entryPrice} onChange={(e) => set("entryPrice", e.target.value)} required />
@@ -234,13 +234,13 @@ export default function TradeFormPage() {
             <input type="number" step="any" className={inputClass} value={form.fees} onChange={(e) => set("fees", e.target.value)} />
           </Field>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-stone-500">
           Set a stop loss to unlock automatic R-multiple calculations. P&amp;L and R are computed automatically once exit price is filled in.
         </p>
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Psychology</h2>
+        <h2 className="mb-3 text-sm font-semibold text-stone-200">Psychology</h2>
         <div className="space-y-4">
           <div>
             <Label>Emotions before entry</Label>
@@ -292,8 +292,8 @@ export default function TradeFormPage() {
 
       {rules && rules.filter((r) => r.active).length > 0 && (
         <Card>
-          <h2 className="mb-1 text-sm font-semibold text-slate-200">Rule Checklist</h2>
-          <p className="mb-3 text-xs text-slate-500">Did you follow your own playbook on this trade? Edit rules on the Playbook page.</p>
+          <h2 className="mb-1 text-sm font-semibold text-stone-200">Rule Checklist</h2>
+          <p className="mb-3 text-xs text-stone-500">Did you follow your own playbook on this trade? Edit rules on the Playbook page.</p>
           <div className="space-y-2">
             {rules
               .filter((r) => r.active)
@@ -310,9 +310,9 @@ export default function TradeFormPage() {
                         next.push({ ruleId: rule.id, followed: e.target.checked });
                         setChecklist(next);
                       }}
-                      className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-sky-600"
+                      className="h-4 w-4 rounded border-stone-700 bg-stone-950 text-sage-600"
                     />
-                    <span className={followed ? "text-slate-300" : "text-slate-500"}>{rule.title}</span>
+                    <span className={followed ? "text-stone-300" : "text-stone-500"}>{rule.title}</span>
                   </label>
                 );
               })}
@@ -321,7 +321,7 @@ export default function TradeFormPage() {
       )}
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Notes &amp; Screenshots</h2>
+        <h2 className="mb-3 text-sm font-semibold text-stone-200">Notes &amp; Screenshots</h2>
         <div className="space-y-3">
           <Field label="Tags (comma separated)">
             <input className={inputClass} placeholder="breakout, earnings, A+ setup" value={form.tags} onChange={(e) => set("tags", e.target.value)} />
@@ -334,16 +334,16 @@ export default function TradeFormPage() {
           </Field>
           <div>
             <Label>Chart screenshots</Label>
-            <input type="file" accept="image/*" multiple onChange={handleScreenshot} className="text-sm text-slate-400" />
+            <input type="file" accept="image/*" multiple onChange={handleScreenshot} className="text-sm text-stone-400" />
             {form.screenshots.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {form.screenshots.map((src, i) => (
                   <div key={i} className="relative">
-                    <img src={src} alt={`Screenshot ${i + 1}`} className="h-20 w-32 rounded-lg border border-slate-800 object-cover" />
+                    <img src={src} alt={`Screenshot ${i + 1}`} className="h-20 w-32 rounded-lg border border-stone-800 object-cover" />
                     <button
                       type="button"
                       onClick={() => removeScreenshot(i)}
-                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-700 text-xs text-white"
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-clay-700 text-xs text-white"
                     >
                       ×
                     </button>

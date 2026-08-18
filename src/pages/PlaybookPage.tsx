@@ -46,15 +46,15 @@ export default function PlaybookPage() {
   return (
     <div className="space-y-4 pb-16">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Trading Playbook</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-lg font-semibold text-stone-100">Trading Playbook</h1>
+        <p className="mt-1 text-sm text-stone-500">
           Define the rules that separate your best trades from your worst. Active rules appear as a checklist when you log
           a trade, so you can measure your discipline over time — not just your P&amp;L.
         </p>
       </div>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-200">Add a Rule</h2>
+        <h2 className="mb-3 text-sm font-semibold text-stone-200">Add a Rule</h2>
         <form onSubmit={addRule} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
             <Field label="Category">
@@ -83,16 +83,16 @@ export default function PlaybookPage() {
           if (group.length === 0) return null;
           return (
             <Card key={c.value}>
-              <h3 className="mb-2 text-sm font-semibold text-slate-200">{c.label}</h3>
+              <h3 className="mb-2 text-sm font-semibold text-stone-200">{c.label}</h3>
               <div className="space-y-2">
                 {group.map((rule) => (
-                  <div key={rule.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 p-2.5">
+                  <div key={rule.id} className="flex items-start justify-between gap-3 rounded-lg border border-stone-800 p-2.5">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className={rule.active ? "text-sm text-slate-200" : "text-sm text-slate-500 line-through"}>{rule.title}</span>
+                        <span className={rule.active ? "text-sm text-stone-200" : "text-sm text-stone-500 line-through"}>{rule.title}</span>
                         {!rule.active && <Badge>inactive</Badge>}
                       </div>
-                      {rule.description && <p className="mt-0.5 text-xs text-slate-500">{rule.description}</p>}
+                      {rule.description && <p className="mt-0.5 text-xs text-stone-500">{rule.description}</p>}
                     </div>
                     <div className="flex shrink-0 gap-1.5">
                       <Button variant="ghost" onClick={() => toggleActive(rule)}>
@@ -108,7 +108,7 @@ export default function PlaybookPage() {
             </Card>
           );
         })}
-        {rules && rules.length === 0 && <p className="text-sm text-slate-500">No rules yet. Add your first one above.</p>}
+        {rules && rules.length === 0 && <p className="text-sm text-stone-500">No rules yet. Add your first one above.</p>}
       </div>
     </div>
   );
