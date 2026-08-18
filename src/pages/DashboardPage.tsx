@@ -90,19 +90,6 @@ export default function DashboardPage() {
         <StatCard label="Rule Adherence" value={fmtPct(stats.ruleAdherenceRate)} sub="checklist items followed" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          label="This Week P&L"
-          value={fmtMoney(thisWeekPnl, { signed: true })}
-          valueClassName={thisWeekPnl >= 0 ? "text-sage-400" : "text-clay-400"}
-        />
-        <StatCard
-          label="This Month P&L"
-          value={fmtMoney(thisMonthPnl, { signed: true })}
-          valueClassName={thisMonthPnl >= 0 ? "text-sage-400" : "text-clay-400"}
-        />
-      </div>
-
       {(stats.planFollowedWinRate != null || stats.planNotFollowedWinRate != null) && (
         <Card>
           <h2 className="mb-2 text-sm font-semibold text-stone-200">Discipline Check</h2>
@@ -141,6 +128,69 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         )}
       </Card>
+
+      {rHistogram.length > 0 && (
+        <Card>
+          <h2 className="mb-3 text-sm font-semibold text-stone-200">R-Multiple Distribution</h2>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={rHistogram}>
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+              <XAxis dataKey="label" tick={{ fill: CHART_TICK, fontSize: 12 }} />
+              <YAxis tick={{ fill: CHART_TICK, fontSize: 12 }} allowDecimals={false} />
+              <Tooltip contentStyle={{ background: CHART_TOOLTIP_BG, border: `1px solid ${CHART_TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }} />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {rHistogram.map((entry, i) => (
+                  <Cell key={i} fill={entry.sortKey < 0 ? CHART_CLAY : CHART_SAGE} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <h2 className="mb-3 text-sm font-semibold text-stone-200">Performance by Strategy</h2>
+          {byStrategy.length === 0 ? (
+            <p className="text-sm text-stone-500">No closed trades yet.</p>
+          ) : (
+            <BreakdownTable rows={byStrategy} />
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-1 text-sm font-semibold text-stone-200">Costliest Mistakes</h2>
+          <p className="mb-3 text-xs text-stone-500">Total P&amp;L impact of trades tagged with each mistake — find your biggest leaks.</p>
+          {byMistake.length === 0 ? (
+            <p className="text-sm text-stone-500">No mistakes tagged yet — nice, or you haven't logged enough trades.</p>
+          ) : (
+            <div className="space-y-2">
+              {byMistake.map((row) => (
+                <div key={row.key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-stone-400">{row.key}</span>
+                  <span className="flex items-center gap-2">
+                    <Badge>{row.trades}x</Badge>
+                    <span className={row.totalPnl >= 0 ? "text-sage-400" : "text-clay-400"}>{fmtMoney(row.totalPnl, { signed: true })}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard
+          label="This Week P&L"
+          value={fmtMoney(thisWeekPnl, { signed: true })}
+          valueClassName={thisWeekPnl >= 0 ? "text-sage-400" : "text-clay-400"}
+        />
+        <StatCard
+          label="This Month P&L"
+          value={fmtMoney(thisMonthPnl, { signed: true })}
+          valueClassName={thisMonthPnl >= 0 ? "text-sage-400" : "text-clay-400"}
+        />
+      </div>
 
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -206,56 +256,6 @@ export default function DashboardPage() {
           </>
         )}
       </Card>
-
-      {rHistogram.length > 0 && (
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold text-stone-200">R-Multiple Distribution</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={rHistogram}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
-              <XAxis dataKey="label" tick={{ fill: CHART_TICK, fontSize: 12 }} />
-              <YAxis tick={{ fill: CHART_TICK, fontSize: 12 }} allowDecimals={false} />
-              <Tooltip contentStyle={{ background: CHART_TOOLTIP_BG, border: `1px solid ${CHART_TOOLTIP_BORDER}`, borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {rHistogram.map((entry, i) => (
-                  <Cell key={i} fill={entry.sortKey < 0 ? CHART_CLAY : CHART_SAGE} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold text-stone-200">Performance by Strategy</h2>
-          {byStrategy.length === 0 ? (
-            <p className="text-sm text-stone-500">No closed trades yet.</p>
-          ) : (
-            <BreakdownTable rows={byStrategy} />
-          )}
-        </Card>
-
-        <Card>
-          <h2 className="mb-1 text-sm font-semibold text-stone-200">Costliest Mistakes</h2>
-          <p className="mb-3 text-xs text-stone-500">Total P&amp;L impact of trades tagged with each mistake — find your biggest leaks.</p>
-          {byMistake.length === 0 ? (
-            <p className="text-sm text-stone-500">No mistakes tagged yet — nice, or you haven't logged enough trades.</p>
-          ) : (
-            <div className="space-y-2">
-              {byMistake.map((row) => (
-                <div key={row.key} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="text-stone-400">{row.key}</span>
-                  <span className="flex items-center gap-2">
-                    <Badge>{row.trades}x</Badge>
-                    <span className={row.totalPnl >= 0 ? "text-sage-400" : "text-clay-400"}>{fmtMoney(row.totalPnl, { signed: true })}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
     </div>
   );
 }

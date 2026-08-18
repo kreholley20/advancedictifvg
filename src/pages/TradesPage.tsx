@@ -1,6 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { db } from "../lib/db";
 import { tradePnl, tradeRMultiple } from "../lib/stats";
 import { fmtDate, fmtMoney, fmtR, pnlColor } from "../lib/format";
@@ -95,11 +95,15 @@ export default function TradesPage() {
 function TradeRow({ trade: t }: { trade: Trade }) {
   const pnl = tradePnl(t);
   const r = tradeRMultiple(t);
+  const navigate = useNavigate();
   return (
-    <tr className="border-b border-stone-900 last:border-0 hover:bg-stone-900/40">
+    <tr
+      onClick={() => navigate(`/trades/${t.id}`)}
+      className="cursor-pointer border-b border-stone-900 last:border-0 hover:bg-stone-900/40"
+    >
       <td className="px-3 py-2 text-stone-400">{fmtDate(t.entryDate)}</td>
       <td className="px-3 py-2">
-        <Link to={`/trades/${t.id}`} className="font-medium text-stone-100 hover:text-sage-400">
+        <Link to={`/trades/${t.id}`} className="font-medium text-stone-100 hover:text-sage-400" onClick={(e) => e.stopPropagation()}>
           {t.symbol}
         </Link>
       </td>
