@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Sage / matcha — primary accent + positive (wins) */
+  --color-sage-50: #f5f7f0;
+  --color-sage-100: #e7ecd9;
+  --color-sage-200: #d0dab4;
+  --color-sage-300: #b2c489;
+  --color-sage-400: #97ab68;
+  --color-sage-500: #7f9450;
+  --color-sage-600: #66783e;
+  --color-sage-700: #505e33;
+  --color-sage-800: #414c2c;
+  --color-sage-900: #384026;
+  --color-sage-950: #1c2212;
+
+  /* Clay / terracotta — negative (losses) & danger */
+  --color-clay-50: #fbf1ec;
+  --color-clay-100: #f5ddd0;
+  --color-clay-200: #e8b89e;
+  --color-clay-300: #d99270;
+  --color-clay-400: #c8734d;
+  --color-clay-500: #b85a35;
+  --color-clay-600: #9c452a;
+  --color-clay-700: #7c3624;
+  --color-clay-800: #632c20;
+  --color-clay-900: #4a2119;
+  --color-clay-950: #2a1310;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: #0c0a09;
+  color: #f5f5f4;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0c0a09;
+}
+::-webkit-scrollbar-thumb {
+  background: #44403c;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #57534e;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
