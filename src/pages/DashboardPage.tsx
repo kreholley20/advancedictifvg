@@ -15,6 +15,7 @@ import {
 } from "../lib/stats";
 import { fmtDate, fmtMoney, fmtPct, fmtR } from "../lib/format";
 import { Badge, Card, EmptyState, StatCard } from "../components/ui";
+import { TradingCalendar } from "../components/TradingCalendar";
 
 const CHART_GRID = "#292524"; // stone-800
 const CHART_TICK = "#a8a29e"; // stone-400
@@ -208,7 +209,9 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-        {periodRows.length === 0 ? (
+        {periodView === "month" ? (
+          <TradingCalendar trades={trades ?? []} />
+        ) : periodRows.length === 0 ? (
           <p className="text-sm text-stone-500">No closed trades yet.</p>
         ) : (
           <>

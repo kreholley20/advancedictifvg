@@ -187,7 +187,7 @@ function periodBucketStart(d: Date, period: Period): Date {
   return period === "week" ? startOfWeek(d) : startOfMonth(d);
 }
 
-function periodKey(d: Date): string {
+export function periodKey(d: Date): string {
   // Local-date key (not UTC) so bucketing matches the trader's own calendar.
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -245,6 +245,30 @@ export function periodBreakdown(trades: Trade[], period: Period): PeriodPnl[] {
 export function currentPeriodPnl(rows: PeriodPnl[], period: Period): number {
   const key = periodKey(periodBucketStart(new Date(), period));
   return rows.find((r) => r.key === key)?.pnl ?? 0;
+}
+
+export interface DayPnl {
+  pnl: number;
+  trades: number;
+  wins: number;
+  losses: number;
+}
+
+/** Per-calendar-day P&L, keyed by local yyyy-mm-dd (via periodKey), for the trading calendar view. */
+export function dailyBreakdown(trades: Trade[]): Map<string, DayPnl> {
+  const closed = trades.filter((t) => tradePnl(t) != null);
+  const map = new Map<string, DayPnl>();
+  for (const t of closed) {
+    const key = periodKey(new Date(t.exitDate ?? t.entryDate));
+    const pnl = tradePnl(t)!;
+    const existing = map.get(key) ?? { pnl: 0, trades: 0, wins: 0, losses: 0 };
+    existing.pnl += pnl;
+    existing.trades += 1;
+    if (pnl > 0) existing.wins += 1;
+    else if (pnl < 0) existing.losses += 1;
+    map.set(key, existing);
+  }
+  return map;
 }
 
 export function groupBy<T, K extends string>(items: T[], keyFn: (item: T) => K): Record<K, T[]> {
