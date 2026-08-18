@@ -13,7 +13,6 @@ const emptyForm = () => ({
   timeframe: "",
   entryDate: new Date().toISOString().slice(0, 16),
   exitDate: "",
-  status: "open" as "open" | "closed",
   entryPrice: "",
   exitPrice: "",
   stopLoss: "",
@@ -55,7 +54,6 @@ export default function TradeFormPage() {
         timeframe: t.timeframe ?? "",
         entryDate: t.entryDate.slice(0, 16),
         exitDate: t.exitDate ? t.exitDate.slice(0, 16) : "",
-        status: t.status,
         entryPrice: String(t.entryPrice),
         exitPrice: t.exitPrice != null ? String(t.exitPrice) : "",
         stopLoss: t.stopLoss != null ? String(t.stopLoss) : "",
@@ -129,7 +127,9 @@ export default function TradeFormPage() {
       timeframe: form.timeframe || undefined,
       entryDate: new Date(form.entryDate).toISOString(),
       exitDate: form.exitDate ? new Date(form.exitDate).toISOString() : undefined,
-      status: form.status,
+      // A trade counts as closed once it has an exit price — no separate
+      // manual toggle to forget, so P&L/stats never silently exclude it.
+      status: form.exitPrice ? "closed" : "open",
       entryPrice: Number(form.entryPrice),
       exitPrice: form.exitPrice ? Number(form.exitPrice) : undefined,
       stopLoss: form.stopLoss ? Number(form.stopLoss) : undefined,
@@ -198,10 +198,14 @@ export default function TradeFormPage() {
             <input className={inputClass} placeholder="e.g. Breakout Retest" value={form.strategy} onChange={(e) => set("strategy", e.target.value)} />
           </Field>
           <Field label="Status">
-            <select className={inputClass} value={form.status} onChange={(e) => set("status", e.target.value as "open" | "closed")}>
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-            </select>
+            <div className={`${inputClass} flex items-center`}>
+              {form.exitPrice ? (
+                <span className="text-sage-400">Closed</span>
+              ) : (
+                <span className="text-amber-400">Open</span>
+              )}
+              <span className="ml-2 text-xs text-stone-500">(set by exit price)</span>
+            </div>
           </Field>
           <Field label="Entry Date/Time">
             <input type="datetime-local" className={inputClass} value={form.entryDate} onChange={(e) => set("entryDate", e.target.value)} />

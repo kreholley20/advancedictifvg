@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../lib/db";
-import { tradePnl, tradeRMultiple } from "../lib/stats";
+import { isClosed, tradePnl, tradeRMultiple } from "../lib/stats";
 import { fmtDate, fmtMoney, fmtR, pnlColor } from "../lib/format";
 import { Badge, Button, EmptyState, inputClass } from "../components/ui";
 import type { Trade } from "../types";
@@ -18,8 +18,8 @@ export default function TradesPage() {
       if (search && !t.symbol.toLowerCase().includes(search.toLowerCase()) && !t.strategy?.toLowerCase().includes(search.toLowerCase())) {
         return false;
       }
-      if (filter === "open") return t.status === "open";
-      if (filter === "closed") return t.status === "closed";
+      if (filter === "open") return !isClosed(t);
+      if (filter === "closed") return isClosed(t);
       if (filter === "wins") return (tradePnl(t) ?? 0) > 0;
       if (filter === "losses") return (tradePnl(t) ?? 0) < 0;
       return true;
@@ -112,7 +112,7 @@ function TradeRow({ trade: t }: { trade: Trade }) {
       </td>
       <td className="px-3 py-2 text-stone-400">{t.strategy || "—"}</td>
       <td className="px-3 py-2">
-        <Badge tone={t.status === "open" ? "warn" : "neutral"}>{t.status}</Badge>
+        <Badge tone={isClosed(t) ? "neutral" : "warn"}>{isClosed(t) ? "closed" : "open"}</Badge>
       </td>
       <td className={`px-3 py-2 text-right font-medium ${pnlColor(pnl)}`}>{pnl == null ? "—" : fmtMoney(pnl, { signed: true })}</td>
       <td className={`px-3 py-2 text-right ${pnlColor(r)}`}>{fmtR(r)}</td>

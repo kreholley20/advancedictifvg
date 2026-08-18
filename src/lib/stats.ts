@@ -1,5 +1,12 @@
 import type { Trade } from "../types";
 
+/** A trade is closed once it has an exit price — the source of truth for
+ * "closed", independent of the stored status field (which is kept in sync
+ * with this at save time, but this stays correct even for older records). */
+export function isClosed(t: Trade): boolean {
+  return t.exitPrice != null;
+}
+
 /** Realized P&L in currency terms. Positive = win, negative = loss. */
 export function tradePnl(t: Trade): number | null {
   if (t.exitPrice == null) return null;
@@ -49,7 +56,7 @@ export interface StatsSummary {
 
 export function computeStats(trades: Trade[]): StatsSummary {
   const closed = trades
-    .filter((t) => t.status === "closed" && tradePnl(t) != null)
+    .filter((t) => tradePnl(t) != null)
     .sort((a, b) => new Date(a.exitDate ?? a.entryDate).getTime() - new Date(b.exitDate ?? b.entryDate).getTime());
 
   const pnls = closed.map((t) => tradePnl(t)!);
@@ -147,7 +154,7 @@ export interface EquityPoint {
 
 export function computeEquityCurve(trades: Trade[]): EquityPoint[] {
   const closed = trades
-    .filter((t) => t.status === "closed" && tradePnl(t) != null)
+    .filter((t) => tradePnl(t) != null)
     .sort((a, b) => new Date(a.exitDate ?? a.entryDate).getTime() - new Date(b.exitDate ?? b.entryDate).getTime());
 
   let cumulative = 0;
@@ -200,7 +207,7 @@ export interface PeriodPnl {
 
 /** Groups closed trades into weekly (Mon-start) or monthly P&L buckets. */
 export function periodBreakdown(trades: Trade[], period: Period): PeriodPnl[] {
-  const closed = trades.filter((t) => t.status === "closed" && tradePnl(t) != null);
+  const closed = trades.filter((t) => tradePnl(t) != null);
   const buckets = new Map<string, Trade[]>();
   for (const t of closed) {
     const d = new Date(t.exitDate ?? t.entryDate);
@@ -258,7 +265,7 @@ export interface BreakdownRow {
 }
 
 export function breakdownBy(trades: Trade[], keyFn: (t: Trade) => string): BreakdownRow[] {
-  const closed = trades.filter((t) => t.status === "closed" && tradePnl(t) != null);
+  const closed = trades.filter((t) => tradePnl(t) != null);
   const grouped = groupBy(closed, keyFn as (t: Trade) => string);
   return Object.entries(grouped)
     .map(([key, group]) => {
@@ -277,7 +284,7 @@ export function breakdownBy(trades: Trade[], keyFn: (t: Trade) => string): Break
 }
 
 export function mistakeBreakdown(trades: Trade[]): BreakdownRow[] {
-  const closed = trades.filter((t) => t.status === "closed" && tradePnl(t) != null);
+  const closed = trades.filter((t) => tradePnl(t) != null);
   const rows = new Map<string, Trade[]>();
   for (const t of closed) {
     for (const m of t.mistakes) {

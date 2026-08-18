@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { db } from "../lib/db";
-import { tradePnl, tradeRMultiple, tradeRisk } from "../lib/stats";
+import { isClosed, tradePnl, tradeRMultiple, tradeRisk } from "../lib/stats";
 import { fmtDateTime, fmtMoney, fmtNum, fmtR, pnlColor } from "../lib/format";
 import { Badge, Button, Card } from "../components/ui";
 
@@ -32,7 +32,7 @@ export default function TradeDetailPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold text-stone-100">{trade.symbol}</h1>
           <Badge tone={trade.direction === "long" ? "good" : "bad"}>{trade.direction}</Badge>
-          <Badge tone={trade.status === "open" ? "warn" : "neutral"}>{trade.status}</Badge>
+          <Badge tone={isClosed(trade) ? "neutral" : "warn"}>{isClosed(trade) ? "closed" : "open"}</Badge>
         </div>
         <div className="flex gap-2">
           <Link to={`/trades/${trade.id}/edit`}>

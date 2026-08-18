@@ -37,9 +37,8 @@ export default function DashboardPage() {
   const thisWeekPnl = useMemo(() => currentPeriodPnl(weeklyRows, "week"), [weeklyRows]);
   const thisMonthPnl = useMemo(() => currentPeriodPnl(monthlyRows, "month"), [monthlyRows]);
   const rHistogram = useMemo(() => {
-    const closed = (trades ?? []).filter((t) => t.status === "closed");
     const buckets: Record<string, number> = {};
-    for (const t of closed) {
+    for (const t of trades ?? []) {
       const r = tradeRMultiple(t);
       if (r == null) continue;
       const bucket = Math.floor(r);
