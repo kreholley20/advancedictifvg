@@ -123,7 +123,6 @@ const nyboDraw = (i, t0, price, lineColor) => {
     });
 };
 
-// Draw open i when the current candle contains hour:minute New York time (once per candle)
 // Remove every line when a new New York day starts
 const nyboNewDay = (day) => {
     const data = nyboStore();
@@ -136,6 +135,7 @@ const nyboNewDay = (day) => {
     }
 };
 
+// Draw open i when the current candle contains hour:minute New York time (once per candle)
 const nyboCheck = (i, show, hour, minute, lineColor, t0, price, startMin, candleMin) => {
     if (!show) return;
     if (nyboMod(hour * 60 + minute - startMin, 1440) >= candleMin) return;   // not this candle
