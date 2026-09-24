@@ -7,7 +7,7 @@
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
-// constants are written inline, and data kept between ticks hangs off a function.
+// constants are written inline, and data kept between ticks lives on globalThis.
 
 init = () => {
     indicator({ onMainPanel: true, format: 'inherit' });
