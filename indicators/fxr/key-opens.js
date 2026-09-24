@@ -2,7 +2,7 @@
 
 // nybo key opens - FXR Script
 // Marks the open price of the most recent candle containing 00:00, 06:00, 08:30 and 09:30 New York
-// time: a black line from that candle to a few candles right of current price.
+// time: a black line from that candle to the current candle.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -29,11 +29,10 @@ init = () => {
     input.int('09:30 Open Minute', 30, 'minuteD', 0, 59, 1, '', '09:30');
 
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
-    input.int('Extend Past Price (candles)', 5, 'extendBars', 1, 50, 1, 'How far the lines reach past the current candle', 'Visuals');
 };
 
 // ---- Data kept between ticks, per open ('' / 0 = nothing yet) ----
-// lineIds: current line, openTime/openPrice: the open candle, endTime: where the line currently ends
+// lineIds: current line, openTime/openPrice: the open candle, endTime: the candle the line ends on
 const nyboStore = () => {
     let data = Reflect.get(nyboStore, 'data');
     if (!data) {
@@ -106,8 +105,9 @@ const nyboDrawLine = (i, endTime, lineColor, text) => {
 };
 
 // Handle open i on the current candle: start a new line when the candle contains hour:minute
-// New York time, and keep the line reaching `extendBars` candles past the current one.
-const nyboUpdate = (i, show, hour, minute, text, t0, price, startMin, candleMin, gap, extendBars, lineColor) => {
+// New York time, and extend the line to each new candle. FXR skips drawings whose points are in
+// the future, so the line ends on the current candle rather than past it.
+const nyboUpdate = (i, show, hour, minute, text, t0, price, startMin, candleMin, lineColor) => {
     const data = nyboStore();
     if (!show) {
         if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
@@ -119,14 +119,9 @@ const nyboUpdate = (i, show, hour, minute, text, t0, price, startMin, candleMin,
     if (isOpenCandle && data.openTime[i] !== t0) {
         data.openTime[i] = t0;
         data.openPrice[i] = price;
-        nyboDrawLine(i, t0 + extendBars * gap, lineColor, text);
-        return;
     }
-    if (data.openTime[i] === 0) return;
-    // Redraw only once the line end is less than half the extension ahead, not on every candle
-    if (t0 + Math.ceil(extendBars / 2) * gap > data.endTime[i]) {
-        nyboDrawLine(i, t0 + extendBars * gap, lineColor, text);
-    }
+    if (data.openTime[i] === 0 || data.endTime[i] === t0) return;   // nothing yet, or already drawn to this candle
+    nyboDrawLine(i, t0, lineColor, text);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
@@ -144,13 +139,10 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
     const startMin = nyboNyMinute(ms0);
-    // One candle in the chart's own time units, to place the line end in the future
-    const gap = t2 != null ? Math.min(t0 - t1, t1 - t2) : t0 - t1;
-    const ext = inputs.extendBars;
     const col = inputs.lineColor;
 
-    nyboUpdate(0, inputs.showA, inputs.hourA, inputs.minuteA, '0:00', t0, price, startMin, candleMin, gap, ext, col);
-    nyboUpdate(1, inputs.showB, inputs.hourB, inputs.minuteB, '6:00', t0, price, startMin, candleMin, gap, ext, col);
-    nyboUpdate(2, inputs.showC, inputs.hourC, inputs.minuteC, '8:30', t0, price, startMin, candleMin, gap, ext, col);
-    nyboUpdate(3, inputs.showD, inputs.hourD, inputs.minuteD, '9:30', t0, price, startMin, candleMin, gap, ext, col);
+    nyboUpdate(0, inputs.showA, inputs.hourA, inputs.minuteA, '0:00', t0, price, startMin, candleMin, col);
+    nyboUpdate(1, inputs.showB, inputs.hourB, inputs.minuteB, '6:00', t0, price, startMin, candleMin, col);
+    nyboUpdate(2, inputs.showC, inputs.hourC, inputs.minuteC, '8:30', t0, price, startMin, candleMin, col);
+    nyboUpdate(3, inputs.showD, inputs.hourD, inputs.minuteD, '9:30', t0, price, startMin, candleMin, col);
 };
