@@ -1,174 +1,85 @@
-// nybo key opens - FXR Script port
-//
-// Draws a horizontal line at the open price of the candle that contains each
-// configured New York time, extending it until that same time comes around again.
-//
-// To change the times, edit OPENS below. Times are HHMM in New York time
-// (DST-aware). Colors and on/off toggles are editable from the indicator settings.
+//@version=1
 
-const OPENS = [
-  { time: '0000', name: '00:00 Open', key: 'o1', color: color.rgba(255, 0, 0, 1) },
-  { time: '0200', name: '02:00 Open', key: 'o2', color: color.rgba(255, 115, 0, 1) },
-  { time: '0830', name: '08:30 Open', key: 'o3', color: color.rgba(217, 255, 0, 1), off: true },
-  { time: '0930', name: '09:30 Open', key: 'o4', color: color.rgba(9, 255, 0, 1), off: true },
-  { time: '1000', name: '10:00 Open', key: 'o5', color: color.rgba(0, 255, 221, 1) },
-  { time: '1330', name: '13:30 Open', key: 'o6', color: color.rgba(180, 0, 255, 1), off: true },
-  { time: '1800', name: '18:00 Open', key: 'o7', color: color.rgba(0, 89, 255, 1) },
-]
+// nybo key opens - FXR Script
+// Marks the open price of the candle containing 00:00, 06:00, 08:30 and 09:30 (New York by default).
+// Only the most recent line per time is kept.
 
-const TF_LIMIT_MINUTES = 1440 // intraday only: on daily candles every candle would contain every time
-const MINUTES_PER_DAY = 1440
-const NO_FILL = color.rgba(0, 0, 0, 0)
+let lineIds = null;   // current horizontal line per open
+let labelIds = null;  // current label per open
+let drawnAt = null;   // candle time each open was last drawn on
 
 init = () => {
-  input.bool('Show opening prices', true, 'show')
-  input.bool('Extend lines to chart edge (lighter, but lines never stop)', false, 'extendAll')
-  input.bool('Debug: color-code candles to find why nothing draws', false, 'debug')
-  for (const o of OPENS) {
-    input.bool('Show ' + o.name, !o.off, o.key + 'On')
-    input.color(o.name + ' color', o.color, o.key + 'Color')
-  }
-}
+    indicator({ onMainPanel: true, format: 'inherit' });
 
-const MS_PER_MINUTE = 60000
-const MS_PER_HOUR = 3600000
-const MS_PER_DAY = 86400000
+    input.str('Timezone', 'America/New_York', 'timeZone', [], '', 'Settings');
 
-// Accept seconds or milliseconds (1e11 ms is 1973; 1e11 s is year 5138), or anything with a numeric value
-const toMs = (t) => {
-  const n = Number(t)
-  return n < 1e11 ? n * 1000 : n
-}
+    // 00:00
+    input.bool('Show 00:00 Open', true, 'showA', '', '00:00');
+    input.int('00:00 Open Hour', 0, 'hourA', 0, 23, 1, '', '00:00');
+    input.int('00:00 Open Minute', 0, 'minuteA', 0, 59, 1, '', '00:00');
+    // 06:00
+    input.bool('Show 06:00 Open', true, 'showB', '', '06:00');
+    input.int('06:00 Open Hour', 6, 'hourB', 0, 23, 1, '', '06:00');
+    input.int('06:00 Open Minute', 0, 'minuteB', 0, 59, 1, '', '06:00');
+    // 08:30
+    input.bool('Show 08:30 Open', true, 'showC', '', '08:30');
+    input.int('08:30 Open Hour', 8, 'hourC', 0, 23, 1, '', '08:30');
+    input.int('08:30 Open Minute', 30, 'minuteC', 0, 59, 1, '', '08:30');
+    // 09:30
+    input.bool('Show 09:30 Open', true, 'showD', '', '09:30');
+    input.int('09:30 Open Hour', 9, 'hourD', 0, 23, 1, '', '09:30');
+    input.int('09:30 Open Minute', 30, 'minuteD', 0, 59, 1, '', '09:30');
 
-// Candle timestamp in ms, or NaN when the candle doesn't exist
-const barMs = (k) => {
-  try {
-    return toMs(time(k))
-  } catch (e) {
-    return NaN
-  }
-}
-const mod = (a, n) => ((a % n) + n) % n
+    input.color('00:00 Open Line Color', color.red, 'colorA', 'Visuals');
+    input.color('06:00 Open Line Color', color.orange, 'colorB', 'Visuals');
+    input.color('08:30 Open Line Color', color.yellow, 'colorC', 'Visuals');
+    input.color('09:30 Open Line Color', color.lime, 'colorD', 'Visuals');
+    input.int('Label size', 12, 'labelSize', 8, 24, 1, '', 'Visuals');
 
-// Days since 1970-01-01 for a calendar date (FXR Script has no date API)
-const daysFromCivil = (y, m, d) => {
-  const yy = m <= 2 ? y - 1 : y
-  const era = Math.floor(yy / 400)
-  const yoe = yy - era * 400
-  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1
-  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy
-  return era * 146097 + doe - 719468
-}
+    lineIds = [null, null, null, null];
+    labelIds = [null, null, null, null];
+    drawnAt = [null, null, null, null];
+};
 
-// Calendar year for a count of days since 1970-01-01
-const yearFromDays = (days) => {
-  const z = days + 719468
-  const era = Math.floor(z / 146097)
-  const doe = z - era * 146097
-  const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365)
-  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100))
-  const mp = Math.floor((5 * doy + 2) / 153)
-  return yoe + era * 400 + (mp >= 10 ? 1 : 0)
-}
+// Replace open i's line and label with new ones at `price`
+const drawOpen = (i, price, t0, lineColor, text, fontSize) => {
+    if (lineIds[i] != null) deleteDrawingById(lineIds[i]);
+    if (labelIds[i] != null) deleteDrawingById(labelIds[i]);
 
-// Day number of the nth Sunday of a month (1970-01-01 was a Thursday)
-const nthSunday = (y, m, n) => {
-  const first = daysFromCivil(y, m, 1)
-  return first + mod(3 - first, 7) + 7 * (n - 1)
-}
+    lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0 }, text);
+    labelIds[i] = arrowRight(t0, price, { arrowColor: lineColor, color: lineColor, fontsize: fontSize, showLabel: true }, text);
+    drawnAt[i] = t0;
+};
 
-// US DST: 2nd Sunday of March 02:00 EST (07:00 UTC) to 1st Sunday of November 02:00 EDT (06:00 UTC)
-const isNewYorkDST = (ms) => {
-  const y = yearFromDays(Math.floor(ms / MS_PER_DAY))
-  const start = nthSunday(y, 3, 2) * MS_PER_DAY + 7 * MS_PER_HOUR
-  const end = nthSunday(y, 11, 1) * MS_PER_DAY + 6 * MS_PER_HOUR
-  return ms >= start && ms < end
-}
-
-// Minute of the day (0-1439) in New York for a candle timestamp
-const nyMinuteOfDay = (t) => {
-  const ms = toMs(t)
-  const local = ms + (isNewYorkDST(ms) ? -4 : -5) * MS_PER_HOUR
-  return mod(Math.floor(local / MS_PER_MINUTE), MINUTES_PER_DAY)
-}
-
-const parseHHMM = (s) => {
-  const v = String(s).replace(':', '').padStart(4, '0')
-  const h = Number(v.slice(0, 2))
-  const m = Number(v.slice(2, 4))
-  return h * 60 + m
-}
-
-// True when the candle starting at minute `start` (lasting `dur` minutes) contains `target`
-const containsMinute = (start, dur, target) =>
-  (((target - start) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY < dur
-
-// Debug colors, drawn as a box over each candle:
-//   purple = the script's top-level code isn't visible to onTick
-//   red    = candle times aren't readable numbers
-//   orange = timeframe is filtered out (daily and above) or the candle length can't be measured
-//   blue   = candle contains one of the enabled open times (lines should start here)
-//   gray   = everything checks out on this candle
-const debugBox = (r, g, b) =>
-  rectangle(time(0), high(0), time(0), low(0), { backgroundColor: color.rgba(r, g, b, 0.35), color: color.rgba(r, g, b, 1) })
+// Draw open i if the current candle contains hour:minute
+const checkOpen = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin, fontSize) => {
+    if (!show) return;
+    const target = hour * 60 + minute;
+    // Minutes from the candle's start to the target, wrapping past midnight
+    const offset = (((target - startMin) % 1440) + 1440) % 1440;
+    if (offset >= candleMin) return;   // target isn't inside this candle
+    if (drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
+    drawOpen(i, price, t0, lineColor, text, fontSize);
+};
 
 onTick = (length, _moment, _, ta, inputs) => {
-  const debug = inputs.debug
-  if (typeof OPENS === 'undefined' || typeof barMs === 'undefined') {
-    if (debug) rectangle(time(0), high(0), time(0), low(0), { backgroundColor: color.rgba(156, 39, 176, 0.35), color: color.rgba(156, 39, 176, 1) })
-    return
-  }
-  if (!inputs.show) return
+    const t0 = time(0);
+    const t1 = time(1);
+    const t2 = time(2);
+    const price = openC(0);   // the candle's OPEN, not its high/low
+    if (!Number.isFinite(price) || t0 == null || t1 == null) return;
 
-  const t0 = barMs(0)
-  const t1 = barMs(1)
-  const t2 = barMs(2)
-  if (!Number.isFinite(t0)) {
-    if (debug) debugBox(244, 67, 54)
-    return
-  }
+    // Candle length in minutes: the smaller of the last two gaps, so a weekend gap doesn't count
+    let candleMin = _moment(t0).diff(_moment(t1), 'minutes');
+    if (t2 != null) candleMin = Math.min(candleMin, _moment(t1).diff(_moment(t2), 'minutes'));
+    if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
-  // Candle duration: the smaller of the last two gaps, so weekend/session gaps don't inflate it
-  const dur = Math.min(t0 - t1, Number.isFinite(t2) ? t1 - t2 : Infinity) / MS_PER_MINUTE
-  if (!(dur > 0) || !Number.isFinite(dur) || dur >= TF_LIMIT_MINUTES) {
-    if (debug) debugBox(255, 152, 0)
-    return
-  }
+    const start = _moment(t0).tz(inputs.timeZone);
+    const startMin = start.hour() * 60 + start.minute();
+    const fontSize = inputs.labelSize;
 
-  // One day of candles is enough to find the latest occurrence of any time
-  const maxBack = Math.ceil(MINUTES_PER_DAY / dur) + 1
-  let matched = false
-
-  for (const o of OPENS) {
-    if (!inputs[o.key + 'On']) continue
-    const target = parseHHMM(o.time)
-    const col = inputs[o.key + 'Color']
-
-    if (containsMinute(nyMinuteOfDay(t0), dur, target)) matched = true
-
-    if (inputs.extendAll) {
-      // Draw once, on the open candle, and let the chart extend it
-      if (containsMinute(nyMinuteOfDay(t0), dur, target)) {
-        rectangle(time(0), openC(0), time(0), openC(0), { backgroundColor: NO_FILL, color: col, extendRight: true })
-      }
-      continue
-    }
-
-    // Find the most recent open candle and extend its line to the current candle
-    for (let k = 0; k <= maxBack; k++) {
-      const tk = barMs(k)
-      if (!Number.isFinite(tk)) break
-      if (containsMinute(nyMinuteOfDay(tk), dur, target)) {
-        const price = openC(k)
-        const from = k === 0 ? time(0) : time(1)
-        rectangle(from, price, time(0), price, { backgroundColor: NO_FILL, color: col })
-        break
-      }
-    }
-  }
-
-  if (debug) {
-    if (matched) debugBox(33, 150, 243)
-    else debugBox(158, 158, 158)
-  }
-}
+    checkOpen(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.colorA, '0:00', t0, price, startMin, candleMin, fontSize);
+    checkOpen(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.colorB, '6:00', t0, price, startMin, candleMin, fontSize);
+    checkOpen(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.colorC, '8:30', t0, price, startMin, candleMin, fontSize);
+    checkOpen(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.colorD, '9:30', t0, price, startMin, candleMin, fontSize);
+};
