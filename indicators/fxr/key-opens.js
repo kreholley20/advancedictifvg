@@ -2,8 +2,8 @@
 
 // nybo key opens - FXR Script
 // Port of the "Opening Prices" section of ICT Killzones & Pivots [TFO]: for each key New York time
-// (00:00, 06:00, 08:30, 09:30), a line at the open price of that candle, running from the candle to
-// the current candle. Only the most recent line per time is kept.
+// (00:00, 06:00, 08:30, 09:30), a line at the open price of that candle, starting at the candle and
+// running right. Only the most recent line per time is kept.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -36,7 +36,7 @@ init = () => {
 const nyboStore = () => {
     let data = Reflect.get(nyboStore, 'data');
     if (!data) {
-        data = { lineIds: ['', '', '', ''], openTime: [0, 0, 0, 0], openPrice: [0, 0, 0, 0], endTime: [0, 0, 0, 0] };
+        data = { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] };
         Reflect.set(nyboStore, 'data', data);
     }
     return data;
@@ -91,31 +91,22 @@ const nyboNyMinute = (ms) => {
 
 // ---- Drawing ----
 
-// Redraw open i from its open candle to candle `t0`. The line is a very thin rectangle centred on the
-// open price: rectangle(time1, price1, time2, price2, styles) is the call FXR's own examples use to
-// draw between two candles, but FXR doesn't render one with zero height, so it gets a sliver of height
-// (0.001% of price, e.g. ~0.1 pip on EURUSD, ~0.2 pt on NQ).
-const nyboDraw = (i, t0, lineColor) => {
+// Replace open i's line with a ray starting at candle `t0`'s open price and running right.
+// horizontalRay anchors to one point, like the horizontalLine/arrowRight calls that draw in FXR;
+// the two-point trendLine and rectangle calls drew nothing.
+const nyboDraw = (i, t0, price, lineColor) => {
     const data = nyboStore();
     if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
-    const p = data.openPrice[i];
-    const half = Math.abs(p) * 0.000005;
-    data.lineIds[i] = rectangle(data.openTime[i], p + half, t0, p - half, { backgroundColor: lineColor, color: lineColor });
-    data.endTime[i] = t0;
+    data.lineIds[i] = horizontalRay(t0, price, { linecolor: lineColor, linewidth: 1, linestyle: 0 });
+    data.drawnAt[i] = t0;
 };
 
-// Handle open i on the current candle: a candle containing hour:minute New York time starts a new
-// line (replacing the old one); after that the line is extended once per new candle.
+// Draw open i when the current candle contains hour:minute New York time (once per candle)
 const nyboCheck = (i, show, hour, minute, lineColor, t0, price, startMin, candleMin) => {
-    const data = nyboStore();
     if (!show) return;
-    const isOpenCandle = nyboMod(hour * 60 + minute - startMin, 1440) < candleMin;
-    if (isOpenCandle && data.openTime[i] !== t0) {
-        data.openTime[i] = t0;
-        data.openPrice[i] = price;
-    }
-    if (data.openTime[i] === 0 || data.endTime[i] === t0) return;   // nothing yet, or already drawn to this candle
-    nyboDraw(i, t0, lineColor);
+    if (nyboMod(hour * 60 + minute - startMin, 1440) >= candleMin) return;   // not this candle
+    if (nyboStore().drawnAt[i] === t0) return;                                // already drawn
+    nyboDraw(i, t0, price, lineColor);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
