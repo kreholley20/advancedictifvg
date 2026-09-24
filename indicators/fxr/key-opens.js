@@ -21,6 +21,7 @@ const NO_FILL = color.rgba(0, 0, 0, 0)
 init = () => {
   input.bool('Show opening prices', true, 'show')
   input.bool('Extend lines to chart edge (lighter, but lines never stop)', false, 'extendAll')
+  input.bool('Debug: color-code candles to find why nothing draws', false, 'debug')
   for (const o of OPENS) {
     input.bool(o.name + ' (' + o.time + ')', !o.off, o.key + 'On')
     input.color(o.name + ' color', o.color, o.key + 'Color')
@@ -31,8 +32,20 @@ const MS_PER_MINUTE = 60000
 const MS_PER_HOUR = 3600000
 const MS_PER_DAY = 86400000
 
-// Accept seconds or milliseconds (1e11 ms is 1973; 1e11 s is year 5138)
-const toMs = (t) => (t < 1e11 ? t * 1000 : t)
+// Accept seconds or milliseconds (1e11 ms is 1973; 1e11 s is year 5138), or anything with a numeric value
+const toMs = (t) => {
+  const n = Number(t)
+  return n < 1e11 ? n * 1000 : n
+}
+
+// Candle timestamp in ms, or NaN when the candle doesn't exist
+const barMs = (k) => {
+  try {
+    return toMs(time(k))
+  } catch (e) {
+    return NaN
+  }
+}
 const mod = (a, n) => ((a % n) + n) % n
 
 // Days since 1970-01-01 for a calendar date (FXR Script has no date API)
@@ -88,24 +101,52 @@ const parseHHMM = (s) => {
 const containsMinute = (start, dur, target) =>
   (((target - start) % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY < dur
 
+// Debug colors, drawn as a box over each candle:
+//   purple = the script's top-level code isn't visible to onTick
+//   red    = candle times aren't readable numbers
+//   orange = timeframe is filtered out (30m and above) or the candle length can't be measured
+//   blue   = candle contains one of the enabled open times (lines should start here)
+//   gray   = everything checks out on this candle
+const debugBox = (r, g, b) =>
+  rectangle(time(0), high(0), time(0), low(0), { backgroundColor: color.rgba(r, g, b, 0.35), color: color.rgba(r, g, b, 1) })
+
 onTick = (length, _moment, _, ta, inputs) => {
-  if (!inputs.show || length < 3) return
+  const debug = inputs.debug
+  if (typeof OPENS === 'undefined' || typeof barMs === 'undefined') {
+    if (debug) rectangle(time(0), high(0), time(0), low(0), { backgroundColor: color.rgba(156, 39, 176, 0.35), color: color.rgba(156, 39, 176, 1) })
+    return
+  }
+  if (!inputs.show) return
+
+  const t0 = barMs(0)
+  const t1 = barMs(1)
+  const t2 = barMs(2)
+  if (!Number.isFinite(t0)) {
+    if (debug) debugBox(244, 67, 54)
+    return
+  }
 
   // Candle duration: the smaller of the last two gaps, so weekend/session gaps don't inflate it
-  const dur = Math.min(toMs(time(0)) - toMs(time(1)), toMs(time(1)) - toMs(time(2))) / MS_PER_MINUTE
-  if (!(dur > 0) || dur >= TF_LIMIT_MINUTES) return
+  const dur = Math.min(t0 - t1, Number.isFinite(t2) ? t1 - t2 : Infinity) / MS_PER_MINUTE
+  if (!(dur > 0) || !Number.isFinite(dur) || dur >= TF_LIMIT_MINUTES) {
+    if (debug) debugBox(255, 152, 0)
+    return
+  }
 
   // One day of candles is enough to find the latest occurrence of any time
-  const maxBack = Math.min(length - 1, Math.ceil(MINUTES_PER_DAY / dur) + 1)
+  const maxBack = Math.ceil(MINUTES_PER_DAY / dur) + 1
+  let matched = false
 
   for (const o of OPENS) {
     if (!inputs[o.key + 'On']) continue
     const target = parseHHMM(o.time)
     const col = inputs[o.key + 'Color']
 
+    if (containsMinute(nyMinuteOfDay(t0), dur, target)) matched = true
+
     if (inputs.extendAll) {
       // Draw once, on the open candle, and let the chart extend it
-      if (containsMinute(nyMinuteOfDay(time(0)), dur, target)) {
+      if (containsMinute(nyMinuteOfDay(t0), dur, target)) {
         rectangle(time(0), openC(0), time(0), openC(0), { backgroundColor: NO_FILL, color: col, extendRight: true })
       }
       continue
@@ -113,12 +154,19 @@ onTick = (length, _moment, _, ta, inputs) => {
 
     // Find the most recent open candle and extend its line to the current candle
     for (let k = 0; k <= maxBack; k++) {
-      if (containsMinute(nyMinuteOfDay(time(k)), dur, target)) {
+      const tk = barMs(k)
+      if (!Number.isFinite(tk)) break
+      if (containsMinute(nyMinuteOfDay(tk), dur, target)) {
         const price = openC(k)
         const from = k === 0 ? time(0) : time(1)
         rectangle(from, price, time(0), price, { backgroundColor: NO_FILL, color: col })
         break
       }
     }
+  }
+
+  if (debug) {
+    if (matched) debugBox(33, 150, 243)
+    else debugBox(158, 158, 158)
   }
 }
