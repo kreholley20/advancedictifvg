@@ -2,7 +2,8 @@
 
 // nybo key opens - FXR Script
 // Marks the open price of the most recent candle containing 00:00, 06:00, 08:30 and 09:30 New York
-// time: a black line from that candle to the current candle.
+// time. A black line runs at that price and an arrow marks the candle it came from.
+// Only the most recent line per open is kept.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -31,12 +32,11 @@ init = () => {
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
 };
 
-// ---- Data kept between ticks, per open ('' / 0 = nothing yet) ----
-// lineIds: current line, openTime/openPrice: the open candle, endTime: the candle the line ends on
+// ---- Data kept between ticks ('' = nothing drawn yet, 0 = never drawn) ----
 const nyboStore = () => {
     let data = Reflect.get(nyboStore, 'data');
     if (!data) {
-        data = { lineIds: ['', '', '', ''], openTime: [0, 0, 0, 0], openPrice: [0, 0, 0, 0], endTime: [0, 0, 0, 0] };
+        data = { lineIds: ['', '', '', ''], markIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] };
         Reflect.set(nyboStore, 'data', data);
     }
     return data;
@@ -91,37 +91,24 @@ const nyboNyMinute = (ms) => {
 
 // ---- Drawing ----
 
-// Redraw open i's line from its open candle to `endTime`, at the open price
-const nyboDrawLine = (i, endTime, lineColor, text) => {
+// Replace open i's line and marker with new ones at the open price of candle `t0`.
+// FXR's horizontalLine is (price, styles, text); arrowRight is (time, price, styles, text).
+const nyboDraw = (i, price, t0, lineColor, text) => {
     const data = nyboStore();
     if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
-    data.lineIds[i] = trendLine(
-        newPoint(data.openTime[i], data.openPrice[i]),
-        newPoint(endTime, data.openPrice[i]),
-        { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true },
-        text
-    );
-    data.endTime[i] = endTime;
+    if (data.markIds[i] !== '') deleteDrawingById(data.markIds[i]);
+    data.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
+    data.markIds[i] = arrowRight(t0, price, { arrowColor: lineColor, color: lineColor, fontsize: 11, showLabel: true }, text);
+    data.drawnAt[i] = t0;
 };
 
-// Handle open i on the current candle: start a new line when the candle contains hour:minute
-// New York time, and extend the line to each new candle. FXR skips drawings whose points are in
-// the future, so the line ends on the current candle rather than past it.
-const nyboUpdate = (i, show, hour, minute, text, t0, price, startMin, candleMin, lineColor) => {
-    const data = nyboStore();
-    if (!show) {
-        if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
-        data.lineIds[i] = '';
-        data.openTime[i] = 0;
-        return;
-    }
-    const isOpenCandle = nyboMod(hour * 60 + minute - startMin, 1440) < candleMin;
-    if (isOpenCandle && data.openTime[i] !== t0) {
-        data.openTime[i] = t0;
-        data.openPrice[i] = price;
-    }
-    if (data.openTime[i] === 0 || data.endTime[i] === t0) return;   // nothing yet, or already drawn to this candle
-    nyboDrawLine(i, t0, lineColor, text);
+// Draw open i when the current candle contains hour:minute New York time
+const nyboCheck = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin) => {
+    if (!show) return;
+    const offset = nyboMod(hour * 60 + minute - startMin, 1440);
+    if (offset >= candleMin) return;                  // target time isn't inside this candle
+    if (nyboStore().drawnAt[i] === t0) return;         // onTick runs every price update: once per candle
+    nyboDraw(i, price, t0, lineColor, text);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
@@ -139,10 +126,9 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
     const startMin = nyboNyMinute(ms0);
-    const col = inputs.lineColor;
 
-    nyboUpdate(0, inputs.showA, inputs.hourA, inputs.minuteA, '0:00', t0, price, startMin, candleMin, col);
-    nyboUpdate(1, inputs.showB, inputs.hourB, inputs.minuteB, '6:00', t0, price, startMin, candleMin, col);
-    nyboUpdate(2, inputs.showC, inputs.hourC, inputs.minuteC, '8:30', t0, price, startMin, candleMin, col);
-    nyboUpdate(3, inputs.showD, inputs.hourD, inputs.minuteD, '9:30', t0, price, startMin, candleMin, col);
+    nyboCheck(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.lineColor, '0:00', t0, price, startMin, candleMin);
+    nyboCheck(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.lineColor, '6:00', t0, price, startMin, candleMin);
+    nyboCheck(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.lineColor, '8:30', t0, price, startMin, candleMin);
+    nyboCheck(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.lineColor, '9:30', t0, price, startMin, candleMin);
 };
