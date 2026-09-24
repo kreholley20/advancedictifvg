@@ -30,16 +30,31 @@ init = () => {
     input.int('09:30 Open Minute', 30, 'minuteD', 0, 59, 1, '', '09:30');
 
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
+
+    // Start clean on load / settings change (FXR clears the old drawings itself)
+    Reflect.set(globalThis, '__nyboKeyOpens', { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] });
 };
 
 // ---- Data kept between ticks, per open ('' / 0 = nothing yet) ----
+// Kept on globalThis: FXR may re-run the script between updates, which would reset anything stored
+// on the script's own variables or functions (old lines then never got deleted).
 const nyboStore = () => {
-    let data = Reflect.get(nyboStore, 'data');
+    let data = Reflect.get(globalThis, '__nyboKeyOpens');
     if (!data) {
         data = { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] };
-        Reflect.set(nyboStore, 'data', data);
+        Reflect.set(globalThis, '__nyboKeyOpens', data);
     }
     return data;
+};
+
+// Delete a drawing without letting a stale or unknown id break the script
+const nyboDelete = (id) => {
+    if (id === '') return;
+    try {
+        deleteDrawingById(id);
+    } catch (e) {
+        // already gone
+    }
 };
 
 // ---- New York time, computed directly (no timezone library needed) ----
@@ -96,9 +111,15 @@ const nyboNyMinute = (ms) => {
 // the two-point trendLine and rectangle calls drew nothing.
 const nyboDraw = (i, t0, price, lineColor) => {
     const data = nyboStore();
-    if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
-    data.lineIds[i] = horizontalRay(t0, price, { linecolor: lineColor, linewidth: 1, linestyle: 0 });
+    nyboDelete(data.lineIds[i]);
+    data.lineIds[i] = '';
     data.drawnAt[i] = t0;
+    const id = horizontalRay(t0, price, { linecolor: lineColor, linewidth: 1, linestyle: 0 });
+    // The id may come back directly or as a promise; store the real id either way
+    Promise.resolve(id).then((v) => {
+        if (data.drawnAt[i] === t0) data.lineIds[i] = String(v);
+        else nyboDelete(String(v));   // a newer line already replaced this one
+    });
 };
 
 // Draw open i when the current candle contains hour:minute New York time (once per candle)
