@@ -4,13 +4,16 @@
 // Marks the open price of the candle containing 00:00, 06:00, 08:30 and 09:30 (New York by default).
 // Only the most recent line per time is kept. Each line is labeled with its time.
 
-// Data kept between ticks lives on FXR's built-in `state` object. FXR drops top-level variables
-// at runtime, so this declaration only tells the editor's type checker the field types; the
-// fields themselves are created in onTick (init runs separately and can't set them).
-// '' = no line yet, 0 = never drawn.
-const state = {
-    nyboLineIds: ['', '', '', ''],   // current horizontal line per open
-    nyboDrawnAt: [0, 0, 0, 0],       // candle time each open was last drawn on
+// Data kept between ticks. FXR drops top-level variables at runtime and its built-in `state`
+// doesn't hold what's written to it, but top-level functions survive, so the data hangs off one.
+// Reflect keeps the editor's type checker happy. '' = no line yet, 0 = never drawn.
+const nyboStore = () => {
+    let data = Reflect.get(nyboStore, 'data');
+    if (!data) {
+        data = { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] };
+        Reflect.set(nyboStore, 'data', data);
+    }
+    return data;
 };
 
 init = () => {
@@ -42,27 +45,24 @@ init = () => {
 };
 
 // Replace open i's line with a new one at `price` (FXR's horizontalLine is (price, styles, text) despite the docs)
-const drawOpen = (i, price, t0, lineColor, text) => {
-    if (state.nyboLineIds[i] !== '') deleteDrawingById(state.nyboLineIds[i]);
-    state.nyboLineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
-    state.nyboDrawnAt[i] = t0;
+const drawOpen = (data, i, price, t0, lineColor, text) => {
+    if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
+    data.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
+    data.drawnAt[i] = t0;
 };
 
 // Draw open i if the current candle contains hour:minute
-const checkOpen = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin) => {
+const checkOpen = (data, i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin) => {
     if (!show) return;
     const target = hour * 60 + minute;
     // Minutes from the candle's start to the target, wrapping past midnight
     const offset = (((target - startMin) % 1440) + 1440) % 1440;
     if (offset >= candleMin) return;   // target isn't inside this candle
-    if (state.nyboDrawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
-    drawOpen(i, price, t0, lineColor, text);
+    if (data.drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
+    drawOpen(data, i, price, t0, lineColor, text);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
-    if (!state.nyboLineIds) state.nyboLineIds = ['', '', '', ''];
-    if (!state.nyboDrawnAt) state.nyboDrawnAt = [0, 0, 0, 0];
-
     const t0 = time(0);
     const t1 = time(1);
     const t2 = time(2);
@@ -74,11 +74,12 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (t2 != null) candleMin = Math.min(candleMin, _moment(t1).diff(_moment(t2), 'minutes'));
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
+    const data = nyboStore();
     const start = _moment(t0).tz(inputs.timeZone);
     const startMin = start.hour() * 60 + start.minute();
 
-    checkOpen(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.colorA, '0:00', t0, price, startMin, candleMin);
-    checkOpen(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.colorB, '6:00', t0, price, startMin, candleMin);
-    checkOpen(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.colorC, '8:30', t0, price, startMin, candleMin);
-    checkOpen(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.colorD, '9:30', t0, price, startMin, candleMin);
+    checkOpen(data, 0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.colorA, '0:00', t0, price, startMin, candleMin);
+    checkOpen(data, 1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.colorB, '6:00', t0, price, startMin, candleMin);
+    checkOpen(data, 2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.colorC, '8:30', t0, price, startMin, candleMin);
+    checkOpen(data, 3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.colorD, '9:30', t0, price, startMin, candleMin);
 };
