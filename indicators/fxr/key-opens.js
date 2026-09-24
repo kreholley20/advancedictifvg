@@ -1,5 +1,4 @@
-// Key Opening Prices - FXR Script port of the "Opening Prices" section of
-// "ICT Killzones & Pivots [TFO]" (MPL-2.0, (c) tradeforopp)
+// nybo key opens - FXR Script port
 //
 // Draws a horizontal line at the open price of the candle that contains each
 // configured New York time, extending it until that same time comes around again.
@@ -8,13 +7,16 @@
 // (DST-aware). Colors and on/off toggles are editable from the indicator settings.
 
 const OPENS = [
-  { time: '0930', name: 'NY Open', key: 'o1', color: color.rgba(33, 150, 243, 1) },
-  { time: '1200', name: 'Midday',  key: 'o2', color: color.rgba(255, 152, 0, 1) },
-  { time: '1600', name: 'Close',   key: 'o3', color: color.rgba(255, 0, 0, 1) },
-  { time: '0000', name: 'Midnight', key: 'o4', color: color.rgba(255, 235, 59, 1), off: true },
+  { time: '0000', name: '00:00 Open', key: 'o1', color: color.rgba(255, 0, 0, 1) },
+  { time: '0200', name: '02:00 Open', key: 'o2', color: color.rgba(255, 115, 0, 1) },
+  { time: '0830', name: '08:30 Open', key: 'o3', color: color.rgba(217, 255, 0, 1), off: true },
+  { time: '0930', name: '09:30 Open', key: 'o4', color: color.rgba(9, 255, 0, 1), off: true },
+  { time: '1000', name: '10:00 Open', key: 'o5', color: color.rgba(0, 255, 221, 1) },
+  { time: '1330', name: '13:30 Open', key: 'o6', color: color.rgba(180, 0, 255, 1), off: true },
+  { time: '1800', name: '18:00 Open', key: 'o7', color: color.rgba(0, 89, 255, 1) },
 ]
 
-const TF_LIMIT_MINUTES = 30   // no drawings on timeframes >= this (same default as the Pine script)
+const TF_LIMIT_MINUTES = 1440 // intraday only: on daily candles every candle would contain every time
 const MINUTES_PER_DAY = 1440
 const NO_FILL = color.rgba(0, 0, 0, 0)
 
@@ -23,7 +25,7 @@ init = () => {
   input.bool('Extend lines to chart edge (lighter, but lines never stop)', false, 'extendAll')
   input.bool('Debug: color-code candles to find why nothing draws', false, 'debug')
   for (const o of OPENS) {
-    input.bool(o.name + ' (' + o.time + ')', !o.off, o.key + 'On')
+    input.bool('Show ' + o.name, !o.off, o.key + 'On')
     input.color(o.name + ' color', o.color, o.key + 'Color')
   }
 }
@@ -104,7 +106,7 @@ const containsMinute = (start, dur, target) =>
 // Debug colors, drawn as a box over each candle:
 //   purple = the script's top-level code isn't visible to onTick
 //   red    = candle times aren't readable numbers
-//   orange = timeframe is filtered out (30m and above) or the candle length can't be measured
+//   orange = timeframe is filtered out (daily and above) or the candle length can't be measured
 //   blue   = candle contains one of the enabled open times (lines should start here)
 //   gray   = everything checks out on this candle
 const debugBox = (r, g, b) =>
