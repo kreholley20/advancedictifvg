@@ -4,15 +4,11 @@
 // Marks the open price of the candle containing 00:00, 06:00, 08:30 and 09:30 (New York by default).
 // Only the most recent line per time is kept. Each line is labeled with its time.
 
-// FXR's runtime doesn't keep top-level variables (`let` came back undefined, and a const named
-// `state` was replaced by its own), but it does keep top-level functions, so the data lives on one
-const newKeyOpensData = () => ({
-    lineIds: [null, null, null, null],   // current horizontal line per open
-    drawnAt: [null, null, null, null],   // candle time each open was last drawn on
-});
-const keyOpensStore = () => {
-    if (!keyOpensStore.data) keyOpensStore.data = newKeyOpensData();
-    return keyOpensStore.data;
+// Data kept between ticks. Uniquely named: a const called `state` clashed with FXR's own.
+// '' = no line yet, 0 = never drawn (typed so FXR's checker accepts string ids and times).
+const nyboKeyOpensData = {
+    lineIds: ['', '', '', ''],   // current horizontal line per open
+    drawnAt: [0, 0, 0, 0],       // candle time each open was last drawn on
 };
 
 init = () => {
@@ -42,13 +38,15 @@ init = () => {
     input.color('08:30 Open Line Color', color.yellow, 'colorC', 'Visuals');
     input.color('09:30 Open Line Color', color.lime, 'colorD', 'Visuals');
 
-    keyOpensStore.data = newKeyOpensData();   // start clean when settings change
+    // start clean when settings change
+    nyboKeyOpensData.lineIds = ['', '', '', ''];
+    nyboKeyOpensData.drawnAt = [0, 0, 0, 0];
 };
 
 // Replace open i's line with a new one at `price` (FXR's horizontalLine is (price, styles, text) despite the docs)
 const drawOpen = (i, price, t0, lineColor, text) => {
-    const store = keyOpensStore();
-    if (store.lineIds[i] != null) deleteDrawingById(store.lineIds[i]);
+    const store = nyboKeyOpensData;
+    if (store.lineIds[i] !== '') deleteDrawingById(store.lineIds[i]);
     store.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
     store.drawnAt[i] = t0;
 };
@@ -60,7 +58,7 @@ const checkOpen = (i, show, hour, minute, lineColor, text, t0, price, startMin, 
     // Minutes from the candle's start to the target, wrapping past midnight
     const offset = (((target - startMin) % 1440) + 1440) % 1440;
     if (offset >= candleMin) return;   // target isn't inside this candle
-    if (keyOpensStore().drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
+    if (nyboKeyOpensData.drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
     drawOpen(i, price, t0, lineColor, text);
 };
 
