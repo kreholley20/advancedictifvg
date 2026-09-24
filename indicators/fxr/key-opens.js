@@ -3,7 +3,8 @@
 // nybo key opens - FXR Script
 // Port of the "Opening Prices" section of ICT Killzones & Pivots [TFO]: for each key New York time
 // (00:00, 06:00, 08:30, 09:30), a line at the open price of that candle, starting at the candle and
-// running right. Only the most recent line per time is kept.
+// running right. Only the current New York day's lines are shown: at midnight the previous day's
+// lines are removed, and each one comes back when today's candle for that time prints.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -32,7 +33,7 @@ init = () => {
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
 
     // Start clean on load / settings change (FXR clears the old drawings itself)
-    Reflect.set(globalThis, '__nyboKeyOpens', { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] });
+    Reflect.set(globalThis, '__nyboKeyOpens', { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0], day: -1 });
 };
 
 // ---- Data kept between ticks, per open ('' / 0 = nothing yet) ----
@@ -41,7 +42,7 @@ init = () => {
 const nyboStore = () => {
     let data = Reflect.get(globalThis, '__nyboKeyOpens');
     if (!data) {
-        data = { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] };
+        data = { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0], day: -1 };
         Reflect.set(globalThis, '__nyboKeyOpens', data);
     }
     return data;
@@ -94,14 +95,14 @@ const nyboNthSunday = (y, m, n) => {
     return first + nyboMod(3 - first, 7) + 7 * (n - 1);
 };
 
-// Minute of the day (0-1439) in New York. US DST runs from the 2nd Sunday of March 07:00 UTC
-// to the 1st Sunday of November 06:00 UTC.
-const nyboNyMinute = (ms) => {
+// New York local time as ms since 1970 (wall clock). US DST runs from the 2nd Sunday of March
+// 07:00 UTC to the 1st Sunday of November 06:00 UTC.
+const nyboNyLocalMs = (ms) => {
     const y = nyboYearFromDays(Math.floor(ms / 86400000));
     const dstStart = nyboNthSunday(y, 3, 2) * 86400000 + 7 * 3600000;
     const dstEnd = nyboNthSunday(y, 11, 1) * 86400000 + 6 * 3600000;
     const offsetHours = ms >= dstStart && ms < dstEnd ? -4 : -5;
-    return nyboMod(Math.floor((ms + offsetHours * 3600000) / 60000), 1440);
+    return ms + offsetHours * 3600000;
 };
 
 // ---- Drawing ----
@@ -123,6 +124,18 @@ const nyboDraw = (i, t0, price, lineColor) => {
 };
 
 // Draw open i when the current candle contains hour:minute New York time (once per candle)
+// Remove every line when a new New York day starts
+const nyboNewDay = (day) => {
+    const data = nyboStore();
+    if (data.day === day) return;
+    data.day = day;
+    for (let i = 0; i < 4; i++) {
+        nyboDelete(data.lineIds[i]);
+        data.lineIds[i] = '';
+        data.drawnAt[i] = 0;
+    }
+};
+
 const nyboCheck = (i, show, hour, minute, lineColor, t0, price, startMin, candleMin) => {
     if (!show) return;
     if (nyboMod(hour * 60 + minute - startMin, 1440) >= candleMin) return;   // not this candle
@@ -144,7 +157,9 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (t2 != null) candleMin = Math.min(candleMin, (ms1 - nyboToMs(t2)) / 60000);
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
-    const startMin = nyboNyMinute(ms0);
+    const local = nyboNyLocalMs(ms0);
+    const startMin = nyboMod(Math.floor(local / 60000), 1440);   // New York minute of the day
+    nyboNewDay(Math.floor(local / 86400000));
 
     nyboCheck(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.lineColor, t0, price, startMin, candleMin);
     nyboCheck(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.lineColor, t0, price, startMin, candleMin);
