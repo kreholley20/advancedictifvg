@@ -91,14 +91,16 @@ const nyboNyMinute = (ms) => {
 
 // ---- Drawing ----
 
-// Redraw open i from its open candle to candle `t0`. The line is a flat rectangle (top = bottom =
-// open price): rectangle(time1, price1, time2, price2, styles) is the call FXR's own examples use,
-// so it draws between two candles reliably.
+// Redraw open i from its open candle to candle `t0`. The line is a very thin rectangle centred on the
+// open price: rectangle(time1, price1, time2, price2, styles) is the call FXR's own examples use to
+// draw between two candles, but FXR doesn't render one with zero height, so it gets a sliver of height
+// (0.001% of price, e.g. ~0.1 pip on EURUSD, ~0.2 pt on NQ).
 const nyboDraw = (i, t0, lineColor) => {
     const data = nyboStore();
     if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
     const p = data.openPrice[i];
-    data.lineIds[i] = rectangle(data.openTime[i], p, t0, p, { backgroundColor: color.rgba(0, 0, 0, 0), color: lineColor });
+    const half = Math.abs(p) * 0.000005;
+    data.lineIds[i] = rectangle(data.openTime[i], p + half, t0, p - half, { backgroundColor: lineColor, color: lineColor });
     data.endTime[i] = t0;
 };
 
