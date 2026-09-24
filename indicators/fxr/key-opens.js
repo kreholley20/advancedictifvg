@@ -3,7 +3,7 @@
 // nybo key opens - FXR Script
 // Port of the "Opening Prices" section of ICT Killzones & Pivots [TFO]: for each key New York time
 // (00:00, 06:00, 08:30, 09:30), a line at the open price of that candle, running from the candle to
-// the current candle, with its label riding the right end. Only the most recent line per time is kept.
+// the current candle. Only the most recent line per time is kept.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -36,7 +36,7 @@ init = () => {
 const nyboStore = () => {
     let data = Reflect.get(nyboStore, 'data');
     if (!data) {
-        data = { lineIds: ['', '', '', ''], labelIds: ['', '', '', ''], openTime: [0, 0, 0, 0], openPrice: [0, 0, 0, 0], endTime: [0, 0, 0, 0] };
+        data = { lineIds: ['', '', '', ''], openTime: [0, 0, 0, 0], openPrice: [0, 0, 0, 0], endTime: [0, 0, 0, 0] };
         Reflect.set(nyboStore, 'data', data);
     }
     return data;
@@ -93,20 +93,18 @@ const nyboNyMinute = (ms) => {
 
 // Redraw open i from its open candle to candle `t0`. The line is a flat rectangle (top = bottom =
 // open price): rectangle(time1, price1, time2, price2, styles) is the call FXR's own examples use,
-// so it draws between two candles reliably. The label rides the right end, like TFO's.
-const nyboDraw = (i, t0, lineColor, text) => {
+// so it draws between two candles reliably.
+const nyboDraw = (i, t0, lineColor) => {
     const data = nyboStore();
     if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
-    if (data.labelIds[i] !== '') deleteDrawingById(data.labelIds[i]);
     const p = data.openPrice[i];
     data.lineIds[i] = rectangle(data.openTime[i], p, t0, p, { backgroundColor: color.rgba(0, 0, 0, 0), color: lineColor });
-    data.labelIds[i] = arrowRight(t0, p, { arrowColor: lineColor, color: lineColor, fontsize: 11, showLabel: true }, text);
     data.endTime[i] = t0;
 };
 
 // Handle open i on the current candle: a candle containing hour:minute New York time starts a new
 // line (replacing the old one); after that the line is extended once per new candle.
-const nyboCheck = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin) => {
+const nyboCheck = (i, show, hour, minute, lineColor, t0, price, startMin, candleMin) => {
     const data = nyboStore();
     if (!show) return;
     const isOpenCandle = nyboMod(hour * 60 + minute - startMin, 1440) < candleMin;
@@ -115,7 +113,7 @@ const nyboCheck = (i, show, hour, minute, lineColor, text, t0, price, startMin, 
         data.openPrice[i] = price;
     }
     if (data.openTime[i] === 0 || data.endTime[i] === t0) return;   // nothing yet, or already drawn to this candle
-    nyboDraw(i, t0, lineColor, text);
+    nyboDraw(i, t0, lineColor);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
@@ -134,8 +132,8 @@ onTick = (length, _moment, _, ta, inputs) => {
 
     const startMin = nyboNyMinute(ms0);
 
-    nyboCheck(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.lineColor, '0:00', t0, price, startMin, candleMin);
-    nyboCheck(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.lineColor, '6:00', t0, price, startMin, candleMin);
-    nyboCheck(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.lineColor, '8:30', t0, price, startMin, candleMin);
-    nyboCheck(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.lineColor, '9:30', t0, price, startMin, candleMin);
+    nyboCheck(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.lineColor, t0, price, startMin, candleMin);
+    nyboCheck(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.lineColor, t0, price, startMin, candleMin);
+    nyboCheck(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.lineColor, t0, price, startMin, candleMin);
+    nyboCheck(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.lineColor, t0, price, startMin, candleMin);
 };
