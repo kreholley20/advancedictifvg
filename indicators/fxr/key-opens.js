@@ -4,10 +4,15 @@
 // Marks the open price of the candle containing 00:00, 06:00, 08:30 and 09:30 (New York by default).
 // Only the most recent line per time is kept. Each line is labeled with its time.
 
-// FXR doesn't share top-level `let` variables with functions, so state lives on a const object
-const state = {
+// FXR's runtime doesn't keep top-level variables (`let` came back undefined, and a const named
+// `state` was replaced by its own), but it does keep top-level functions, so the data lives on one
+const newKeyOpensData = () => ({
     lineIds: [null, null, null, null],   // current horizontal line per open
     drawnAt: [null, null, null, null],   // candle time each open was last drawn on
+});
+const keyOpensStore = () => {
+    if (!keyOpensStore.data) keyOpensStore.data = newKeyOpensData();
+    return keyOpensStore.data;
 };
 
 init = () => {
@@ -37,15 +42,15 @@ init = () => {
     input.color('08:30 Open Line Color', color.yellow, 'colorC', 'Visuals');
     input.color('09:30 Open Line Color', color.lime, 'colorD', 'Visuals');
 
-    state.lineIds = [null, null, null, null];
-    state.drawnAt = [null, null, null, null];
+    keyOpensStore.data = newKeyOpensData();   // start clean when settings change
 };
 
 // Replace open i's line with a new one at `price` (FXR's horizontalLine is (price, styles, text) despite the docs)
 const drawOpen = (i, price, t0, lineColor, text) => {
-    if (state.lineIds[i] != null) deleteDrawingById(state.lineIds[i]);
-    state.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
-    state.drawnAt[i] = t0;
+    const store = keyOpensStore();
+    if (store.lineIds[i] != null) deleteDrawingById(store.lineIds[i]);
+    store.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
+    store.drawnAt[i] = t0;
 };
 
 // Draw open i if the current candle contains hour:minute
@@ -55,7 +60,7 @@ const checkOpen = (i, show, hour, minute, lineColor, text, t0, price, startMin, 
     // Minutes from the candle's start to the target, wrapping past midnight
     const offset = (((target - startMin) % 1440) + 1440) % 1440;
     if (offset >= candleMin) return;   // target isn't inside this candle
-    if (state.drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
+    if (keyOpensStore().drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
     drawOpen(i, price, t0, lineColor, text);
 };
 
