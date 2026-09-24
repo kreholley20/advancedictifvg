@@ -2,12 +2,11 @@
 
 // nybo key opens - FXR Script
 // Marks the open price of the candle containing 00:00, 06:00, 08:30 and 09:30 (New York by default).
-// Only the most recent line per time is kept.
+// Only the most recent line per time is kept. Each line is labeled with its time.
 
 // FXR doesn't share top-level `let` variables with functions, so state lives on a const object
 const state = {
     lineIds: [null, null, null, null],   // current horizontal line per open
-    labelIds: [null, null, null, null],  // current label per open
     drawnAt: [null, null, null, null],   // candle time each open was last drawn on
 };
 
@@ -37,32 +36,27 @@ init = () => {
     input.color('06:00 Open Line Color', color.orange, 'colorB', 'Visuals');
     input.color('08:30 Open Line Color', color.yellow, 'colorC', 'Visuals');
     input.color('09:30 Open Line Color', color.lime, 'colorD', 'Visuals');
-    input.int('Label size', 12, 'labelSize', 8, 24, 1, '', 'Visuals');
 
     state.lineIds = [null, null, null, null];
-    state.labelIds = [null, null, null, null];
     state.drawnAt = [null, null, null, null];
 };
 
-// Replace open i's line and label with new ones at `price`
-const drawOpen = (i, price, t0, lineColor, text, fontSize) => {
+// Replace open i's line with a new one at `price`, anchored on the open candle
+const drawOpen = (i, price, t0, lineColor, text) => {
     if (state.lineIds[i] != null) deleteDrawingById(state.lineIds[i]);
-    if (state.labelIds[i] != null) deleteDrawingById(state.labelIds[i]);
-
-    state.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0 }, text);
-    state.labelIds[i] = arrowRight(t0, price, { arrowColor: lineColor, color: lineColor, fontsize: fontSize, showLabel: true }, text);
+    state.lineIds[i] = horizontalLine(t0, price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
     state.drawnAt[i] = t0;
 };
 
 // Draw open i if the current candle contains hour:minute
-const checkOpen = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin, fontSize) => {
+const checkOpen = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin) => {
     if (!show) return;
     const target = hour * 60 + minute;
     // Minutes from the candle's start to the target, wrapping past midnight
     const offset = (((target - startMin) % 1440) + 1440) % 1440;
     if (offset >= candleMin) return;   // target isn't inside this candle
     if (state.drawnAt[i] === t0) return;      // onTick runs every price update: draw once per candle
-    drawOpen(i, price, t0, lineColor, text, fontSize);
+    drawOpen(i, price, t0, lineColor, text);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
@@ -79,10 +73,9 @@ onTick = (length, _moment, _, ta, inputs) => {
 
     const start = _moment(t0).tz(inputs.timeZone);
     const startMin = start.hour() * 60 + start.minute();
-    const fontSize = inputs.labelSize;
 
-    checkOpen(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.colorA, '0:00', t0, price, startMin, candleMin, fontSize);
-    checkOpen(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.colorB, '6:00', t0, price, startMin, candleMin, fontSize);
-    checkOpen(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.colorC, '8:30', t0, price, startMin, candleMin, fontSize);
-    checkOpen(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.colorD, '9:30', t0, price, startMin, candleMin, fontSize);
+    checkOpen(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.colorA, '0:00', t0, price, startMin, candleMin);
+    checkOpen(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.colorB, '6:00', t0, price, startMin, candleMin);
+    checkOpen(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.colorC, '8:30', t0, price, startMin, candleMin);
+    checkOpen(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.colorD, '9:30', t0, price, startMin, candleMin);
 };
