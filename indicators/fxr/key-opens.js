@@ -1,9 +1,9 @@
 //@version=1
 
 // nybo key opens - FXR Script
-// Marks the open price of the most recent candle containing 00:00, 06:00, 08:30 and 09:30 New York
-// time. A black line runs at that price and an arrow marks the candle it came from.
-// Only the most recent line per open is kept.
+// Port of the "Opening Prices" section of ICT Killzones & Pivots [TFO]: for each key New York time
+// (00:00, 06:00, 08:30, 09:30), a line at the open price of that candle, running from the candle to
+// the current candle, with its label riding the right end. Only the most recent line per time is kept.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -32,11 +32,11 @@ init = () => {
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
 };
 
-// ---- Data kept between ticks ('' = nothing drawn yet, 0 = never drawn) ----
+// ---- Data kept between ticks, per open ('' / 0 = nothing yet) ----
 const nyboStore = () => {
     let data = Reflect.get(nyboStore, 'data');
     if (!data) {
-        data = { lineIds: ['', '', '', ''], markIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0] };
+        data = { lineIds: ['', '', '', ''], labelIds: ['', '', '', ''], openTime: [0, 0, 0, 0], openPrice: [0, 0, 0, 0], endTime: [0, 0, 0, 0] };
         Reflect.set(nyboStore, 'data', data);
     }
     return data;
@@ -91,24 +91,31 @@ const nyboNyMinute = (ms) => {
 
 // ---- Drawing ----
 
-// Replace open i's line and marker with new ones at the open price of candle `t0`.
-// FXR's horizontalLine is (price, styles, text); arrowRight is (time, price, styles, text).
-const nyboDraw = (i, price, t0, lineColor, text) => {
+// Redraw open i from its open candle to candle `t0`. The line is a flat rectangle (top = bottom =
+// open price): rectangle(time1, price1, time2, price2, styles) is the call FXR's own examples use,
+// so it draws between two candles reliably. The label rides the right end, like TFO's.
+const nyboDraw = (i, t0, lineColor, text) => {
     const data = nyboStore();
     if (data.lineIds[i] !== '') deleteDrawingById(data.lineIds[i]);
-    if (data.markIds[i] !== '') deleteDrawingById(data.markIds[i]);
-    data.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
-    data.markIds[i] = arrowRight(t0, price, { arrowColor: lineColor, color: lineColor, fontsize: 11, showLabel: true }, text);
-    data.drawnAt[i] = t0;
+    if (data.labelIds[i] !== '') deleteDrawingById(data.labelIds[i]);
+    const p = data.openPrice[i];
+    data.lineIds[i] = rectangle(data.openTime[i], p, t0, p, { backgroundColor: color.rgba(0, 0, 0, 0), color: lineColor });
+    data.labelIds[i] = arrowRight(t0, p, { arrowColor: lineColor, color: lineColor, fontsize: 11, showLabel: true }, text);
+    data.endTime[i] = t0;
 };
 
-// Draw open i when the current candle contains hour:minute New York time
+// Handle open i on the current candle: a candle containing hour:minute New York time starts a new
+// line (replacing the old one); after that the line is extended once per new candle.
 const nyboCheck = (i, show, hour, minute, lineColor, text, t0, price, startMin, candleMin) => {
+    const data = nyboStore();
     if (!show) return;
-    const offset = nyboMod(hour * 60 + minute - startMin, 1440);
-    if (offset >= candleMin) return;                  // target time isn't inside this candle
-    if (nyboStore().drawnAt[i] === t0) return;         // onTick runs every price update: once per candle
-    nyboDraw(i, price, t0, lineColor, text);
+    const isOpenCandle = nyboMod(hour * 60 + minute - startMin, 1440) < candleMin;
+    if (isOpenCandle && data.openTime[i] !== t0) {
+        data.openTime[i] = t0;
+        data.openPrice[i] = price;
+    }
+    if (data.openTime[i] === 0 || data.endTime[i] === t0) return;   // nothing yet, or already drawn to this candle
+    nyboDraw(i, t0, lineColor, text);
 };
 
 onTick = (length, _moment, _, ta, inputs) => {
