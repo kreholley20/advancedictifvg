@@ -41,10 +41,10 @@ init = () => {
     state.drawnAt = [null, null, null, null];
 };
 
-// Replace open i's line with a new one at `price`, anchored on the open candle
+// Replace open i's line with a new one at `price` (FXR's horizontalLine is (price, styles, text) despite the docs)
 const drawOpen = (i, price, t0, lineColor, text) => {
     if (state.lineIds[i] != null) deleteDrawingById(state.lineIds[i]);
-    state.lineIds[i] = horizontalLine(t0, price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
+    state.lineIds[i] = horizontalLine(price, { linecolor: lineColor, linewidth: 1, linestyle: 0, showLabel: true, textcolor: lineColor }, text);
     state.drawnAt[i] = t0;
 };
 
