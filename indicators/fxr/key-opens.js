@@ -8,7 +8,7 @@
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
-// constants are written inline, and data kept between ticks lives on globalThis.
+// constants are written inline, and the record of drawn lines lives on globalThis.
 
 init = () => {
     indicator({ onMainPanel: true, format: 'inherit' });
@@ -31,19 +31,18 @@ init = () => {
     input.int('09:30 Open Minute', 30, 'minuteD', 0, 59, 1, '', '09:30');
 
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
-
-    // Start clean on load / settings change (FXR clears the old drawings itself)
-    Reflect.set(globalThis, '__nyboKeyOpens', { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0], day: -1 });
 };
 
-// ---- Data kept between ticks, per open ('' / 0 = nothing yet) ----
-// Kept on globalThis: FXR may re-run the script between updates, which would reset anything stored
-// on the script's own variables or functions (old lines then never got deleted).
+// ---- Every line this script has drawn, kept between ticks ----
+// FXR recalculates the whole history during replay (and may call init again), while drawings from
+// earlier passes stay on the chart. So the registry lives on globalThis and is never reset: it maps
+// "open index:candle time" -> drawing id, which lets old lines always be found and deleted, and stops
+// the same line being drawn twice. `day` is the New York day the current lines belong to.
 const nyboStore = () => {
-    let data = Reflect.get(globalThis, '__nyboKeyOpens');
+    let data = Reflect.get(globalThis, '__nyboKeyOpens2');
     if (!data) {
-        data = { lineIds: ['', '', '', ''], drawnAt: [0, 0, 0, 0], day: -1 };
-        Reflect.set(globalThis, '__nyboKeyOpens', data);
+        data = { ids: {}, day: -1 };
+        Reflect.set(globalThis, '__nyboKeyOpens2', data);
     }
     return data;
 };
@@ -107,39 +106,49 @@ const nyboNyLocalMs = (ms) => {
 
 // ---- Drawing ----
 
-// Replace open i's line with a ray starting at candle `t0`'s open price and running right.
-// horizontalRay anchors to one point, like the horizontalLine/arrowRight calls that draw in FXR;
-// the two-point trendLine and rectangle calls drew nothing.
+// Delete every registered line whose key matches `test`
+const nyboDeleteWhere = (test) => {
+    const data = nyboStore();
+    for (const key of Object.keys(data.ids)) {
+        if (!test(key)) continue;
+        nyboDelete(data.ids[key]);
+        delete data.ids[key];
+    }
+};
+
+// Draw open i as a ray starting at candle `t0`'s open price and running right, replacing any older
+// line for the same open. horizontalRay anchors to one point, like the horizontalLine/arrowRight
+// calls that draw in FXR; the two-point trendLine and rectangle calls drew nothing.
 const nyboDraw = (i, t0, price, lineColor) => {
     const data = nyboStore();
-    nyboDelete(data.lineIds[i]);
-    data.lineIds[i] = '';
-    data.drawnAt[i] = t0;
+    const key = i + ':' + t0;
+    if (key in data.ids) return;                               // already on the chart
+    nyboDeleteWhere((k) => k.startsWith(i + ':'));             // only the newest line per open
+    data.ids[key] = '';
     const id = horizontalRay(t0, price, { linecolor: lineColor, linewidth: 1, linestyle: 0 });
     // The id may come back directly or as a promise; store the real id either way
     Promise.resolve(id).then((v) => {
-        if (data.drawnAt[i] === t0) data.lineIds[i] = String(v);
-        else nyboDelete(String(v));   // a newer line already replaced this one
+        if (key in data.ids) data.ids[key] = String(v);
+        else nyboDelete(String(v));                            // replaced before the id arrived
     });
 };
 
-// Remove every line when a new New York day starts
+// When the New York day changes (moving forward, or back to the start of a recalculation),
+// delete every line, so only lines from the current day, midnight onward, are ever on the chart
 const nyboNewDay = (day) => {
     const data = nyboStore();
     if (data.day === day) return;
     data.day = day;
-    for (let i = 0; i < 4; i++) {
-        nyboDelete(data.lineIds[i]);
-        data.lineIds[i] = '';
-        data.drawnAt[i] = 0;
-    }
+    nyboDeleteWhere(() => true);
 };
 
-// Draw open i when the current candle contains hour:minute New York time (once per candle)
+// Draw open i when the current candle contains hour:minute New York time
 const nyboCheck = (i, show, hour, minute, lineColor, t0, price, startMin, candleMin) => {
-    if (!show) return;
+    if (!show) {
+        nyboDeleteWhere((k) => k.startsWith(i + ':'));
+        return;
+    }
     if (nyboMod(hour * 60 + minute - startMin, 1440) >= candleMin) return;   // not this candle
-    if (nyboStore().drawnAt[i] === t0) return;                                // already drawn
     nyboDraw(i, t0, price, lineColor);
 };
 
