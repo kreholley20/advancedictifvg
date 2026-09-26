@@ -16,22 +16,22 @@
 init = () => {
     indicator({ onMainPanel: true, format: 'inherit' });
 
-    // 00:00
-    input.bool('Show 00:00 Open', true, 'showA', '', '00:00');
-    input.int('00:00 Open Hour', 0, 'hourA', 0, 23, 1, '', '00:00');
-    input.int('00:00 Open Minute', 0, 'minuteA', 0, 59, 1, '', '00:00');
-    // 06:00
-    input.bool('Show 06:00 Open', true, 'showB', '', '06:00');
-    input.int('06:00 Open Hour', 6, 'hourB', 0, 23, 1, '', '06:00');
-    input.int('06:00 Open Minute', 0, 'minuteB', 0, 59, 1, '', '06:00');
-    // 08:30
-    input.bool('Show 08:30 Open', true, 'showC', '', '08:30');
-    input.int('08:30 Open Hour', 8, 'hourC', 0, 23, 1, '', '08:30');
-    input.int('08:30 Open Minute', 30, 'minuteC', 0, 59, 1, '', '08:30');
-    // 09:30
-    input.bool('Show 09:30 Open', true, 'showD', '', '09:30');
-    input.int('09:30 Open Hour', 9, 'hourD', 0, 23, 1, '', '09:30');
-    input.int('09:30 Open Minute', 30, 'minuteD', 0, 59, 1, '', '09:30');
+    // Midnight
+    input.bool('Show Midnight Open', true, 'showA', '', 'Midnight');
+    input.int('Midnight Open Hour', 0, 'hourA', 0, 23, 1, '', 'Midnight');
+    input.int('Midnight Open Minute', 0, 'minuteA', 0, 59, 1, '', 'Midnight');
+    // 6am
+    input.bool('Show 6am Open', true, 'showB', '', '6am');
+    input.int('6am Open Hour', 6, 'hourB', 0, 23, 1, '', '6am');
+    input.int('6am Open Minute', 0, 'minuteB', 0, 59, 1, '', '6am');
+    // 830am
+    input.bool('Show 830am Open', true, 'showC', '', '830am');
+    input.int('830am Open Hour', 8, 'hourC', 0, 23, 1, '', '830am');
+    input.int('830am Open Minute', 30, 'minuteC', 0, 59, 1, '', '830am');
+    // 930am
+    input.bool('Show 930am Open', true, 'showD', '', '930am');
+    input.int('930am Open Hour', 9, 'hourD', 0, 23, 1, '', '930am');
+    input.int('930am Open Minute', 30, 'minuteD', 0, 59, 1, '', '930am');
 
     input.color('Line Color', color.black, 'lineColor', 'Visuals');
 };
@@ -163,8 +163,14 @@ onTick = (length, _moment, _, ta, inputs) => {
     // closed during replay, so the newest is found by its index: `index` counts candles and
     // `length` is taken to be the number of candles on the chart.
     const isNewest = index >= length - 1 || !isBarClosed();
-    if (index % 250 === 0 || isNewest) {
-        console.log('[nybo key opens] index=' + index + ' length=' + length + ' closed=' + isBarClosed() + ' newest=' + isNewest);
+
+    // TEMPORARY diagnostic: FXR doesn't show console.log, so write the values on the chart. Every
+    // 09:30 New York candle, every 100th candle and any candle counted as newest gets a small red
+    // marker; remove once the newest candle is detected correctly.
+    const diagMin = nyboMod(Math.floor(nyboNyLocalMs(ms0) / 60000), 1440);
+    if (nyboMod(570 - diagMin, 1440) < candleMin || index % 100 === 0 || isNewest) {
+        arrowRight(t0, high(0), { arrowColor: color.red, color: color.red, fontsize: 11, showLabel: true },
+            'i=' + index + ' len=' + length + ' closed=' + isBarClosed() + ' now=' + _moment().valueOf());
     }
     if (!isNewest) return;
 
