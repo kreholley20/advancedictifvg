@@ -159,18 +159,19 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (t2 != null) candleMin = Math.min(candleMin, (ms1 - nyboToMs(t2)) / 60000);
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
-    // Only draw on the newest candle, so past days are never drawn. FXR reports every candle as
-    // closed during replay, so the newest is found by its index: `index` counts candles and
-    // `length` is taken to be the number of candles on the chart.
-    const isNewest = index >= length - 1 || !isBarClosed();
+    // Only draw on the newest candle, so past days are never drawn. `index` counts candles and
+    // `length` is taken to be the number of candles on the chart. Both are checked with typeof first:
+    // isBarClosed(), used earlier, doesn't exist for indicators and crashed every candle.
+    const hasIndex = typeof index === 'number' && typeof length === 'number';
+    const isNewest = hasIndex && index >= length - 1;
 
-    // TEMPORARY diagnostic: FXR doesn't show console.log, so write the values on the chart. Every
-    // 09:30 New York candle, every 100th candle and any candle counted as newest gets a small red
-    // marker; remove once the newest candle is detected correctly.
+    // TEMPORARY diagnostic: FXR doesn't show console.log, so write the values on the chart as a small
+    // red marker on every 09:30 New York candle and on any candle counted as newest. Remove once the
+    // newest candle is detected correctly.
     const diagMin = nyboMod(Math.floor(nyboNyLocalMs(ms0) / 60000), 1440);
-    if (nyboMod(570 - diagMin, 1440) < candleMin || index % 100 === 0 || isNewest) {
-        arrowRight(t0, high(0), { arrowColor: color.red, color: color.red, fontsize: 11, showLabel: true },
-            'i=' + index + ' len=' + length + ' closed=' + isBarClosed() + ' now=' + _moment().valueOf());
+    if (nyboMod(570 - diagMin, 1440) < candleMin || isNewest) {
+        arrowRight(t0, openC(0), { arrowColor: color.red, color: color.red, fontsize: 11, showLabel: true },
+            'index=' + (typeof index === 'undefined' ? 'missing' : index) + ' length=' + length + ' t=' + t0);
     }
     if (!isNewest) return;
 
