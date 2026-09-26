@@ -6,8 +6,8 @@
 // running right. Only the current New York day's four lines are drawn.
 //
 // FXR doesn't reliably remove drawings, so past days' lines are never drawn in the first place:
-// nothing is drawn while FXR runs over past (closed) candles. On the live candle the script looks
-// back to New York midnight, finds today's key candles, and draws just those.
+// nothing is drawn until FXR reaches the newest candle on the chart. There the script looks back to
+// New York midnight, finds today's key candles, and draws just those.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -159,8 +159,14 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (t2 != null) candleMin = Math.min(candleMin, (ms1 - nyboToMs(t2)) / 60000);
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
-    // Only draw on the live candle; past candles are closed, so past days are never drawn
-    if (isBarClosed()) return;
+    // Only draw on the newest candle, so past days are never drawn. FXR reports every candle as
+    // closed during replay, so the newest is found by its index: `index` counts candles and
+    // `length` is taken to be the number of candles on the chart.
+    const isNewest = index >= length - 1 || !isBarClosed();
+    if (index % 250 === 0 || isNewest) {
+        console.log('[nybo key opens] index=' + index + ' length=' + length + ' closed=' + isBarClosed() + ' newest=' + isNewest);
+    }
+    if (!isNewest) return;
 
     const local = nyboNyLocalMs(ms0);
     const today = Math.floor(local / 86400000);
@@ -177,7 +183,7 @@ onTick = (length, _moment, _, ta, inputs) => {
         if (!shows[i]) nyboDeleteWhere((k) => k.startsWith(i + ':'));
     }
 
-    // Walk back from the live candle to New York midnight, drawing each key candle found today
+    // Walk back from the newest candle to New York midnight, drawing each key candle found today
     const maxBack = Math.ceil(1440 / candleMin) + 1;
     for (let k = 0; k <= maxBack; k++) {
         const tk = time(k);
