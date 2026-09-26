@@ -3,8 +3,11 @@
 // nybo key opens - FXR Script
 // Port of the "Opening Prices" section of ICT Killzones & Pivots [TFO]: for each key New York time
 // (00:00, 06:00, 08:30, 09:30), a line at the open price of that candle, starting at the candle and
-// running right. Only the current New York day's lines are shown: at midnight the previous day's
-// lines are removed, and each one comes back when today's candle for that time prints.
+// running right. Only the current New York day's four lines are drawn.
+//
+// FXR doesn't reliably remove drawings, so past days' lines are never drawn in the first place:
+// nothing is drawn while FXR runs over past (closed) candles. On the live candle the script looks
+// back to New York midnight, finds today's key candles, and draws just those.
 //
 // FXR's runtime only keeps top-level `const name = (...) =>` functions plus init/onTick; every other
 // top-level statement (let, const values) is removed. So every helper below is an arrow function,
@@ -142,16 +145,6 @@ const nyboNewDay = (day) => {
     nyboDeleteWhere(() => true);
 };
 
-// Draw open i when the current candle contains hour:minute New York time
-const nyboCheck = (i, show, hour, minute, lineColor, t0, price, startMin, candleMin) => {
-    if (!show) {
-        nyboDeleteWhere((k) => k.startsWith(i + ':'));
-        return;
-    }
-    if (nyboMod(hour * 60 + minute - startMin, 1440) >= candleMin) return;   // not this candle
-    nyboDraw(i, t0, price, lineColor);
-};
-
 onTick = (length, _moment, _, ta, inputs) => {
     const t0 = time(0);
     const t1 = time(1);
@@ -166,12 +159,36 @@ onTick = (length, _moment, _, ta, inputs) => {
     if (t2 != null) candleMin = Math.min(candleMin, (ms1 - nyboToMs(t2)) / 60000);
     if (!(candleMin > 0) || candleMin >= 1440) return;   // intraday charts only
 
-    const local = nyboNyLocalMs(ms0);
-    const startMin = nyboMod(Math.floor(local / 60000), 1440);   // New York minute of the day
-    nyboNewDay(Math.floor(local / 86400000));
+    // Only draw on the live candle; past candles are closed, so past days are never drawn
+    if (isBarClosed()) return;
 
-    nyboCheck(0, inputs.showA, inputs.hourA, inputs.minuteA, inputs.lineColor, t0, price, startMin, candleMin);
-    nyboCheck(1, inputs.showB, inputs.hourB, inputs.minuteB, inputs.lineColor, t0, price, startMin, candleMin);
-    nyboCheck(2, inputs.showC, inputs.hourC, inputs.minuteC, inputs.lineColor, t0, price, startMin, candleMin);
-    nyboCheck(3, inputs.showD, inputs.hourD, inputs.minuteD, inputs.lineColor, t0, price, startMin, candleMin);
+    const local = nyboNyLocalMs(ms0);
+    const today = Math.floor(local / 86400000);
+    nyboNewDay(today);
+
+    const shows = [inputs.showA, inputs.showB, inputs.showC, inputs.showD];
+    const targets = [
+        inputs.hourA * 60 + inputs.minuteA,
+        inputs.hourB * 60 + inputs.minuteB,
+        inputs.hourC * 60 + inputs.minuteC,
+        inputs.hourD * 60 + inputs.minuteD,
+    ];
+    for (let i = 0; i < 4; i++) {
+        if (!shows[i]) nyboDeleteWhere((k) => k.startsWith(i + ':'));
+    }
+
+    // Walk back from the live candle to New York midnight, drawing each key candle found today
+    const maxBack = Math.ceil(1440 / candleMin) + 1;
+    for (let k = 0; k <= maxBack; k++) {
+        const tk = time(k);
+        if (tk == null) break;
+        const localK = nyboNyLocalMs(nyboToMs(tk));
+        if (Math.floor(localK / 86400000) !== today) break;   // reached yesterday
+        const minK = nyboMod(Math.floor(localK / 60000), 1440);
+        for (let i = 0; i < 4; i++) {
+            if (!shows[i]) continue;
+            if (nyboMod(targets[i] - minK, 1440) >= candleMin) continue;   // not this candle
+            nyboDraw(i, tk, openC(k), inputs.lineColor);
+        }
+    }
 };
